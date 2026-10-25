@@ -1446,7 +1446,8 @@ function renderHistory() {
           '<div class="date">⛽ PLEIN <span class="mode">' + dateTxt + '</span>' +
             (h.notFull ? ' <span class="badge">non complet</span>' : '') + '</div>' +
           '<div class="desc" style="color:#4ade80;">' + fmt1(h.liters) + ' L à ' +
-            h.priceL.toFixed(3).replace(".", ",") + ' €/L · ' + fmt(h.liters * h.priceL) + '</div>' +
+            h.priceL.toFixed(3).replace(".", ",") + ' €/L · ' + fmt(h.liters * h.priceL) +
+            (h.odo > 0 ? ' · ' + h.odo.toLocaleString("fr-FR") + ' km' : '') + '</div>' +
         '</div>' +
         '<button class="del" data-hdel="' + h.id + '">✕</button>';
     } else {
