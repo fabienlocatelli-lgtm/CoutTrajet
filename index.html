@@ -1795,7 +1795,7 @@ renderHistory();
 reconcile();
 renderDests();
 renderFixed();
-if (store.get("trajet_kmYear") !== null) el("fdKmYear").value = store.get("trajet_kmYear");
+if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
 updMassTotal();
 </script>
 </body>
