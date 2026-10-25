@@ -328,12 +328,21 @@
         <input id="flTime" type="time">
       </div>
     </div>
+    <div class="row">
+      <div>
+        <label for="flOdo">Km au compteur</label>
+        <div class="unit"><input id="flOdo" type="number" inputmode="decimal" step="100" min="0" placeholder="95000"><span>km</span></div>
+      </div>
+      <div style="align-self:end;">
+        <div class="hint" style="margin:0;">Optionnel : alimente les km/an et la conso réelle</div>
+      </div>
+    </div>
     <div class="toggle">
       <span class="tlabel">Je n'ai pas fait le plein (réservoir non rempli)</span>
       <label class="switch"><input type="checkbox" id="flNotFull"><span class="slider"></span></label>
     </div>
     <button class="btn blue" id="addPlein">➕ Ajouter ce plein</button>
-    <div class="meta" id="pleinStatus" style="text-align:left;"></div>
+    <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
     <div class="hint">Entre deux pleins complets, les trajets cochés de l'historique sont
       recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.</div>
 
@@ -1394,7 +1403,25 @@ function reconcile() {
       " appliqué à " + trips.length + " trajet(s) coché(s).";
   }
   saveHistory();
-  el("pleinStatus").textContent = lastMsg;
+  let consoMsg = "";
+  const complete = sorted.filter(h => h.type === "Plein" && !h.notFull);
+  for (let i = 0; i < complete.length - 1; i++) {
+    const A = complete[i], B = complete[i + 1];
+    if (!(A.odo > 0) || !(B.odo > 0)) continue;
+    const km = B.odo - A.odo;
+    if (km <= 0) continue;
+    const added = sorted.filter(h => h.type === "Plein" &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date))
+      .reduce((s, p) => s + (p.liters || 0), 0);
+    if (!(added > 0)) continue;
+    consoMsg = "Conso réelle : " + fmt1(added / km * 100) + " L/100 sur " +
+      km.toLocaleString("fr-FR") + " km (pleins du " +
+      new Date(A.date).toLocaleDateString("fr-FR") + " au " +
+      new Date(B.date).toLocaleDateString("fr-FR") + ")." +
+      "\nPour recalibrer la courbe : saisis-la dans « 🎯 Ajuster à ma conso réelle ».";
+  }
+  el("pleinStatus").textContent = lastMsg + (consoMsg ? "\n\n" + consoMsg : "");
+  renderFixed();
   return lastMsg;
 }
 
@@ -1483,10 +1510,14 @@ el("addPlein").addEventListener("click", () => {
   const t = (el("flTime").value || new Date().toTimeString().slice(0, 5)) + ":00";
   const date = new Date(d + "T" + t);
   if (isNaN(date)) { toast("Date/heure invalide"); return; }
+  const odo = num(el("flOdo").value);
   history.push({ id: Date.now(), date: date.toISOString(), type: "Plein",
     liters: liters, priceL: priceL, notFull: el("flNotFull").checked,
+    odo: odo > 0 ? odo : null,
     desc: "Plein " + fmt1(liters) + " L à " + priceL + " €/L" +
+      (odo > 0 ? " · " + odo.toLocaleString("fr-FR") + " km" : "") +
       (el("flNotFull").checked ? " (non complet)" : "") });
+  el("flOdo").value = "";
   saveHistory();
   reconcile();
   renderHistory();
@@ -1558,7 +1589,8 @@ function openDetail(h) {
       h.priceL.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) +
       " €/L · Total payé : " + fmt(h.liters * h.priceL) + " €" +
       " · Le " + d.toLocaleDateString("fr-FR") + " à " +
-      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
+      (h.odo > 0 ? " · Compteur : " + h.odo.toLocaleString("fr-FR") + " km" : "");
     el("mChart").style.display = "none";
     el("modalBg").classList.add("show");
     return;
@@ -1594,30 +1626,34 @@ const saveFixed = () => store.set("trajet_fixed", JSON.stringify(fixedCosts));
 const saveOdo = () => store.set("trajet_odo", JSON.stringify(odometers));
 
 function kmPerYear() {
-  const sorted = odometers.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
-  if (sorted.length >= 2) {
-    const days = (new Date(sorted[sorted.length - 1].date) - new Date(sorted[0].date)) / 86400000;
-    const km = num(sorted[sorted.length - 1].km) - num(sorted[0].km);
+  const pts = odometers.map(o => ({ date: o.date, km: num(o.km) }))
+    .concat(history.filter(h => h.type === "Plein" && h.odo > 0)
+      .map(h => ({ date: h.date, km: h.odo })))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (pts.length >= 2) {
+    const days = (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) / 86400000;
+    const km = num(pts[pts.length - 1].km) - num(pts[0].km);
     if (days >= 7 && km > 0) return { val: km / days * 365, source: "relevés compteur" };
   }
   const man = num(el("fdKmYear").value);
   if (man > 0) return { val: man, source: "valeur manuelle" };
   return null;
 }
+function fixedAnnualPart(f) {
+  const a = num(f.amount);
+  if (!(a > 0)) return 0;
+  if (f.type === "annuelle") return a;
+  const yrs = Math.max(1, Math.round(num(f.years) || 1));
+  const now = Date.now();
+  const start = f.date ? new Date(f.date).getTime() : NaN;
+  if (!isNaN(start) && (now < start || now > start + yrs * 365.25 * 86400000)) return 0; // hors période
+  return a / yrs;
+}
 function fixedPerKm() {
   const kmy = kmPerYear();
   if (!kmy) return null;
-  const now = Date.now();
   let annual = 0;
-  fixedCosts.forEach(f => {
-    const a = num(f.amount);
-    if (!(a > 0)) return;
-    if (f.type === "annuelle") { annual += a; return; }
-    const yrs = Math.max(1, Math.round(num(f.years) || 1));
-    const start = f.date ? new Date(f.date).getTime() : NaN;
-    if (!isNaN(start) && (now < start || now > start + yrs * 365.25 * 86400000)) return; // hors période
-    annual += a / yrs;
-  });
+  fixedCosts.forEach(f => { annual += fixedAnnualPart(f); });
   if (annual <= 0) return null;
   return { perKm: annual / kmy.val, annual: annual, kmy: kmy };
 }
@@ -1648,10 +1684,20 @@ function renderFixed() {
       '<div class="desc">' + num(o.km).toLocaleString("fr-FR") + ' km au compteur</div>' +
     '</div><button class="del" data-odel="' + o.id + '">✕</button></div>').join("");
   const r = fixedPerKm();
-  el("fixedStatus").textContent = !r
-    ? "Ajoute des dépenses + 2 relevés de compteur (ou des km/an manuels) pour obtenir le coût fixe au km."
-    : "Total : " + fmt(r.annual) + "/an · " + fmt1(r.kmy.val) + " km/an (" + r.kmy.source +
-      ") → " + r.perKm.toFixed(3).replace(".", ",") + " €/km";
+  if (!r) {
+    el("fixedStatus").textContent = "Ajoute des dépenses + 2 relevés de compteur (ou des km/an manuels) pour obtenir le coût fixe au km.";
+  } else {
+    const lines = fixedCosts.map(f => {
+      const part = fixedAnnualPart(f);
+      return "· " + f.name + " : " + (part > 0
+        ? (part / r.kmy.val).toFixed(3).replace(".", ",") + " €/km (" + fmt(part) + "/an)"
+        : "0 €/km (terminée)");
+    });
+    el("fixedStatus").innerHTML =
+      "<b>Estimation : " + r.perKm.toFixed(3).replace(".", ",") + " €/km</b>" +
+      " — " + fmt(r.annual) + "/an ÷ " + fmt1(r.kmy.val) + " km/an (" + r.kmy.source + ")" +
+      (lines.length ? "<br>" + lines.join("<br>") : "");
+  }
 }
 el("addFixed").addEventListener("click", () => {
   const name = el("fdName").value.trim();
