@@ -1,0 +1,1573 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0f172a" />
+<title>Coût de trajet essence</title>
+<style>
+  :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 0 0 40px; }
+  .wrap { width: 100%; max-width: 480px; }
+  .card { background: #1e293b; border-radius: 16px; padding: 20px; margin: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  h1 { margin: 0 0 4px; font-size: 1.25rem; text-align: center; }
+  h2 { margin: 18px 0 10px; font-size: 1rem; }
+  .subtitle { text-align: center; color: #94a3b8; font-size: .8rem; margin-bottom: 14px; }
+  label { display: block; font-size: .85rem; color: #94a3b8; margin: 12px 0 6px; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; min-width: 0; }
+  input[type="number"], input[type="text"], input[type="date"], input[type="time"], select {
+    width: 100%; padding: 12px; font-size: 1rem; border-radius: 12px;
+    border: 1px solid #334155; background: #0f172a; color: #fff; outline: none;
+    color-scheme: dark;
+  }
+  input:focus, select:focus { border-color: #38bdf8; }
+  .unit { position: relative; }
+  .unit span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .8rem; pointer-events: none; }
+  .unit input { padding-right: 54px; }
+  .tabs { display: flex; margin: 16px 16px 0; gap: 4px; }
+  .tab { flex: 1; padding: 12px 2px; text-align: center; background: #1e293b; color: #94a3b8;
+    border: none; border-radius: 12px 12px 0 0; font-size: .72rem; font-weight: 600; cursor: pointer; }
+  .tab.active { background: #38bdf8; color: #0f172a; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .toggle { display: flex; align-items: center; justify-content: space-between;
+    background: #0f172a; border-radius: 12px; padding: 12px 14px; border: 1px solid #334155; margin-top: 10px; }
+  .toggle .tlabel { color: #e2e8f0; font-size: .9rem; }
+  .switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; cursor: pointer; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .slider { position: absolute; inset: 0; background: #334155; border-radius: 28px; transition: .2s; }
+  .slider::before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .switch input:checked + .slider { background: #38bdf8; }
+  .switch input:checked + .slider::before { transform: translateX(24px); }
+  .tollField { display: none; }
+  .tollField.show { display: block; }
+  .drawer { display: none; margin-top: 10px; background: #0f172a; border: 1px solid #334155;
+    border-radius: 12px; padding: 12px; }
+  .drawer.show { display: block; }
+  .segment { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .segment .head { display: flex; align-items: center; gap: 8px; }
+  .segment .head input[type="text"] { flex: 1; min-width: 0; }
+  .del { background: none; border: none; color: #f87171; font-size: 1.2rem; padding: 4px 10px; cursor: pointer; }
+  .meta { font-size: .75rem; color: #64748b; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  td, th { padding: 4px; text-align: center; }
+  td input { padding: 8px !important; font-size: .95rem !important; }
+  .btn { margin-top: 12px; width: 100%; padding: 14px; border-radius: 12px; border: none;
+    font-size: .95rem; font-weight: 600; cursor: pointer; }
+  .btn.gray { background: #334155; color: #e2e8f0; }
+  .btn.blue { background: #38bdf8; color: #0f172a; }
+  .btn:disabled { opacity: .5; }
+  .btn:active { opacity: .8; }
+  .result { margin-top: 18px; background: linear-gradient(135deg, #0ea5e9, #0f766e);
+    border-radius: 16px; padding: 18px; text-align: center; }
+  .result .amount { font-size: 2.1rem; font-weight: 800; color: #fff; }
+  .result .detail { font-size: .82rem; color: #d1fae5; margin-top: 6px; min-height: 1.2em; line-height: 1.6; }
+  .formula { font-size: .75rem; color: #94a3b8; text-align: center; margin-top: 8px; line-height: 1.6; }
+  .hint { font-size: .72rem; color: #64748b; text-align: center; margin-top: 10px; line-height: 1.5; }
+  details.info { margin-top: 12px; background: #0f172a; border: 1px solid #334155;
+    border-radius: 12px; padding: 10px 12px; font-size: .78rem; color: #94a3b8; line-height: 1.6; }
+  details.info summary { cursor: pointer; color: #38bdf8; font-size: .82rem; }
+  .hist-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px;
+    margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .hist-item .left { flex: 1; min-width: 0; }
+  .hist-item .date { font-size: .7rem; color: #64748b; }
+  .hist-item .mode { font-size: .68rem; color: #38bdf8; }
+  .hist-item .desc { font-size: .8rem; color: #94a3b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-item .cost { font-weight: 700; white-space: nowrap; }
+  .hist-item .cb { flex: 0 0 auto; width: 24px; height: 24px; margin-top: 6px; }
+  .hist-item.plein { border-color: #4ade80; background: #052e16; }
+  .hist-item .badge { font-size: .65rem; color: #f59e0b; }
+  .empty { color: #64748b; font-size: .85rem; text-align: center; margin-top: 10px; }
+  #chartBox { margin-top: 14px; background: #0f172a; border-radius: 12px; padding: 10px; }
+  #chartBox svg { width: 100%; height: auto; }
+  .legend { display: flex; gap: 10px; justify-content: center; font-size: .68rem; color: #94a3b8; margin-top: 6px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  .status { font-size: .78rem; color: #94a3b8; margin-top: 10px; min-height: 1.2em; line-height: 1.5; white-space: pre-line; }
+  .status.err { color: #f87171; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #0ea5e9; color: #fff; padding: 12px 20px; border-radius: 12px;
+    font-size: .85rem; display: none; z-index: 10; max-width: 90vw; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none;
+    justify-content: center; align-items: center; z-index: 20; padding: 16px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #1e293b; border-radius: 16px; padding: 20px;
+    width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { margin: 0 0 6px; font-size: 1.05rem; }
+  .modal .full { font-size: .85rem; color: #e2e8f0; background: #0f172a;
+    border-radius: 12px; padding: 12px; margin: 10px 0; line-height: 1.5; word-break: break-word; white-space: pre-line; }
+  .modal .stats { font-size: .85rem; color: #94a3b8; }
+  .modal .chart2 { margin-top: 12px; background: #0f172a; border-radius: 12px; padding: 10px; }
+  .modal .chart2 svg { width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="tabs">
+  <button class="tab active" data-tab="p1">🛣️ Manuel</button>
+  <button class="tab" data-tab="p2">🗺️ Itinéraire</button>
+  <button class="tab" data-tab="p5">📊 Temps réel</button>
+  <button class="tab" data-tab="p4">⚙️ Réglages</button>
+  <button class="tab" data-tab="p3">🕘 Historique</button>
+</div>
+
+<!-- ===================== NIVEAU 1 : MANUEL ===================== -->
+<div class="panel active" id="p1">
+  <div class="card">
+    <h1>⛽ Coût de trajet</h1>
+    <div class="subtitle">Niveau 1 — saisie manuelle</div>
+
+    <label for="conso">Conso du véhicule (L/100km)</label>
+    <div class="unit"><input id="conso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,5"><span>L/100</span></div>
+
+    <h2>🛣️ Sous-trajets</h2>
+    <div id="segments"></div>
+    <button class="btn gray" id="addSegment">+ Ajouter un sous-trajet</button>
+
+    <div class="toggle">
+      <span class="tlabel">Ajouter un péage</span>
+      <label class="switch"><input type="checkbox" id="hasToll"><span class="slider"></span></label>
+    </div>
+    <div class="tollField" id="tollField">
+      <label for="toll">Montant du péage (sommes acceptées : ex. 23,9+12,6)</label>
+      <div class="unit"><input id="toll" type="text" inputmode="decimal" placeholder="12,40 ou 23,9+12,6"><span>€</span></div>
+      <div class="meta" id="tollParsed"></div>
+    </div>
+
+    <div class="result">
+      <div class="amount" id="amount">—</div>
+      <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
+    </div>
+    <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage</div>
+    <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
+    <details class="info">
+      <summary>ℹ️ Comment ce calcul est fait</summary>
+      Chaque sous-trajet : litres = distance ÷ 100 × conso. Carburant = litres × prix du litre
+      (réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).
+      Ce mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel.
+    </details>
+  </div>
+</div>
+
+<!-- ===================== NIVEAU 2 : ITINÉRAIRE ===================== -->
+<div class="panel" id="p2">
+  <div class="card">
+    <h1>🗺️ Itinéraire</h1>
+    <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu)</div>
+
+    <label for="from">Lieu de départ</label>
+    <input id="from" type="text" list="destList" placeholder="Ex. 20 avenue de Ségur, Paris" autocomplete="off">
+    <label for="to">Lieu d'arrivée</label>
+    <input id="to" type="text" list="destList" placeholder="Ex. Gare de Lyon, Paris" autocomplete="off">
+    <datalist id="destList"></datalist>
+
+    <div class="toggle">
+      <span class="tlabel">Aller-retour (distance ×2)</span>
+      <label class="switch"><input type="checkbox" id="roundTrip2"><span class="slider"></span></label>
+    </div>
+    <div class="toggle">
+      <span class="tlabel">Ajouter un péage</span>
+      <label class="switch"><input type="checkbox" id="hasToll2"><span class="slider"></span></label>
+    </div>
+    <div class="tollField" id="tollField2">
+      <label for="toll2">Montant du péage (sommes acceptées)</label>
+      <div class="unit"><input id="toll2" type="text" inputmode="decimal" placeholder="12,40 ou 23,9+12,6"><span>€</span></div>
+      <div class="meta" id="toll2Parsed"></div>
+    </div>
+
+    <div class="toggle">
+      <span class="tlabel">🌤️ Météo sur le trajet</span>
+      <label class="switch"><input type="checkbox" id="wxOn"><span class="slider"></span></label>
+    </div>
+    <div class="drawer" id="wxDrawer">
+      <div class="toggle" style="margin-top:0;">
+        <span class="tlabel">Météo réelle (Open-Meteo, tous les 10 km)</span>
+        <label class="switch"><input type="checkbox" id="wxApi"><span class="slider"></span></label>
+      </div>
+      <div id="wxApiOpts">
+        <div class="row">
+          <div>
+            <label for="wxDate">Date de départ (optionnel)</label>
+            <input id="wxDate" type="date">
+          </div>
+          <div>
+            <label for="wxTime">Heure de départ</label>
+            <input id="wxTime" type="time" value="08:00">
+          </div>
+        </div>
+        <div class="hint">Sans date : météo actuelle. Date passée : archive Open-Meteo.
+          Date future ≤ 16 jours : prévisions. Au-delà : impossible.</div>
+      </div>
+      <div id="wxManualOpts">
+        <label for="wxWind">Vent (simplifié)</label>
+        <select id="wxWind">
+          <option value="0">Aucun</option>
+          <option value="-15">Faible, contre (15 km/h)</option>
+          <option value="-35">Fort, contre (35 km/h)</option>
+          <option value="15">Faible, arrière (15 km/h)</option>
+          <option value="35">Fort, arrière (35 km/h)</option>
+        </select>
+        <label for="wxRain">Pluie (simplifiée)</label>
+        <select id="wxRain">
+          <option value="1">Aucune</option>
+          <option value="1.05">Faible (+5 %)</option>
+          <option value="1.12">Forte (+12 %)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn blue" id="calcRoute">🚗 Calculer le coût</button>
+    <div class="status" id="status"></div>
+
+    <div class="result" id="result2" style="display:none;">
+      <div class="amount" id="amount2">—</div>
+      <div class="detail" id="detail2"></div>
+    </div>
+
+    <div id="chartBox" style="display:none;">
+      <div id="chart"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#38bdf8"></span>Conso (L/100km)</span>
+        <span><span class="dot" style="background:#f59e0b"></span>Vitesse (km/h)</span>
+        <span><span class="dot" style="background:#4ade80"></span>Altitude (m)</span>
+      </div>
+    </div>
+
+    <details class="info">
+      <summary>ℹ️ Comment ce calcul est fait</summary>
+      Par tronçon : conso = courbe(vitesse) + effet pente + effet vent, × effet pluie.
+      <br>• <b>Vitesse</b> : estimée par OSRM, plafonnée par votre « vitesse max ».
+      <br>• <b>Pente</b> : altitudes Open-Meteo le long du tracé. ±1 % de pente ≈ ±1,35 L/100km
+      pour 1200 kg (force = m·g·pente ; énergie essence 32,2 MJ/L ; rendement 27 %).
+      <br>• <b>Vent</b> : surcroît aérodynamique ½·ρ·CdA·(v_rel²−v²) avec le vent projeté sur l'axe
+      du trajet (ex. 25 km/h de face à 90 km/h ≈ +1,8 L/100km).
+      <br>• <b>Pluie</b> : +5 % (faible) ou +12 % (forte) — routes mouillées, climatisation.
+      <br>Le résultat détaille la part de chaque effet.
+    </details>
+    <button class="btn blue" id="saveBtn2" style="display:none;">💾 Enregistrer ce calcul</button>
+  </div>
+</div>
+
+<!-- ===================== NIVEAU 3 : TEMPS RÉEL GPS ===================== -->
+<div class="panel" id="p5">
+  <div class="card">
+    <h1>📊 Temps réel</h1>
+    <div class="subtitle">GPS + votre courbe — localisation activée requise</div>
+
+    <div class="row">
+      <button class="btn blue" id="gpsStart" style="margin-top:0;">▶ Démarrer</button>
+      <button class="btn gray" id="gpsStop" style="margin-top:0; display:none;">⏹ Arrêter</button>
+    </div>
+    <div class="status" id="gpsStatus"></div>
+
+    <div class="result" id="gpsLive" style="display:none;">
+      <div class="detail" style="margin:0;">Consommation instantanée</div>
+      <div class="amount" id="gConso">—</div>
+      <div class="detail" id="gSpeed">—</div>
+      <div class="detail" id="gBreak" style="font-size:.75rem;"></div>
+    </div>
+
+    <h2>🧮 Trajet en cours</h2>
+    <table>
+      <tr><th>Distance</th><th>Carburant</th><th>Coût</th><th>Conso moy.</th></tr>
+      <tr><td id="gDist">—</td><td id="gLitres">—</td><td id="gCost">—</td><td id="gAvg">—</td></tr>
+    </table>
+
+    <div class="toggle">
+      <span class="tlabel">🌤️ Météo réelle (mise à jour tous les 10 km)</span>
+      <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
+    </div>
+    <div class="hint">Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé
+      (altitude relevée tous les 2 km) pour corriger la consommation instantanée.</div>
+
+    <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
+    <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
+      le point s'ajoute à votre courbe.</div>
+
+    <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
+    <details class="info">
+      <summary>ℹ️ Comment ce calcul est fait</summary>
+      Conso instantanée = courbe(vitesse GPS) + effet pente (altitudes relevées tous les 2 km)
+      + effet vent (météo à votre position, projetée sur votre cap GPS), × effet pluie.
+      Le carburant du trajet est la somme distance × conso de chaque instant.
+      Le GPS est lissé en ville : à l'arrêt la consommation affichée est celle du dernier instant valide.
+    </details>
+  </div>
+</div>
+
+<!-- ===================== RÉGLAGES ===================== -->
+<div class="panel" id="p4">
+  <div class="card">
+    <h1>⚙️ Réglages</h1>
+    <div class="subtitle">Tout est mémorisé sur l'appareil</div>
+
+    <h2>⛽ Carburant</h2>
+    <label for="price">Prix du litre</label>
+    <div class="unit"><input id="price" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,75"><span>€/L</span></div>
+
+    <h2>⛽ Pleins d'essence</h2>
+    <div class="row">
+      <div>
+        <label for="flPrice">Prix du litre</label>
+        <div class="unit"><input id="flPrice" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,78"><span>€/L</span></div>
+      </div>
+      <div>
+        <label for="flLitres">Litres remis</label>
+        <div class="unit"><input id="flLitres" type="number" inputmode="decimal" step="0.1" min="0" placeholder="40,2"><span>L</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="flDate">Date</label>
+        <input id="flDate" type="date">
+      </div>
+      <div>
+        <label for="flTime">Heure</label>
+        <input id="flTime" type="time">
+      </div>
+    </div>
+    <div class="toggle">
+      <span class="tlabel">Je n'ai pas fait le plein (réservoir non rempli)</span>
+      <label class="switch"><input type="checkbox" id="flNotFull"><span class="slider"></span></label>
+    </div>
+    <button class="btn blue" id="addPlein">➕ Ajouter ce plein</button>
+    <div class="meta" id="pleinStatus" style="text-align:left;"></div>
+    <div class="hint">Entre deux pleins complets, les trajets cochés de l'historique sont
+      recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.</div>
+
+    <h2>💾 Sauvegarde des données</h2>
+    <div class="row">
+      <button class="btn blue" id="expData">⬇️ Exporter</button>
+      <button class="btn blue" id="impData">⬆️ Importer</button>
+      <input id="impFile" type="file" accept="application/json,.json" style="display:none">
+    </div>
+    <div class="hint">Exporte tout (historique, destinations, réglages, courbes) dans un fichier
+      JSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil.</div>
+
+    <h2>⚖️ Masse</h2>
+    <div class="row">
+      <div>
+        <label for="massVeh">Véhicule à vide</label>
+        <div class="unit"><input id="massVeh" type="number" inputmode="decimal" step="50" min="200" value="1200"><span>kg</span></div>
+      </div>
+      <div>
+        <label for="massLoad">Poids transporté</label>
+        <div class="unit"><input id="massLoad" type="number" inputmode="decimal" step="10" min="0" value="0"><span>kg</span></div>
+      </div>
+    </div>
+    <div class="meta" id="massTotal"></div>
+    <div class="hint">La masse totale agit sur l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.</div>
+
+    <h2>🏎️ Aérodynamique</h2>
+    <label for="maxSpeed">Je roule au maximum à</label>
+    <div class="unit"><input id="maxSpeed" type="number" inputmode="decimal" step="10" min="30" value="130"><span>km/h</span></div>
+    <label for="cdA">Surface frontale aéro (CdA)</label>
+    <div class="unit"><input id="cdA" type="number" inputmode="decimal" step="0.05" min="0.2" value="0.65"><span>m²</span></div>
+    <div class="hint">CdA ≈ 0,6–0,7 pour une berline, 0,8–1,0 pour un SUV. Utilisé pour l'effet du vent.</div>
+
+    <h2>🚗 Courbe du véhicule</h2>
+    <label for="curveSelect">Courbe utilisée</label>
+    <select id="curveSelect"></select>
+    <label for="curveName">Nom (pour enregistrer une courbe perso)</label>
+    <input id="curveName" type="text" placeholder="Ex. Ma Clio 1.2">
+    <button class="btn blue" id="saveCurveAs">💾 Enregistrer la courbe sous ce nom</button>
+    <button class="btn gray" id="delCurve" style="display:none;">🗑️ Supprimer cette courbe perso</button>
+
+    <h2>📈 Points vitesse → consommation</h2>
+    <div id="curveTable"></div>
+    <button class="btn gray" id="addPoint">+ Ajouter un point</button>
+
+    <h2>🎯 Ajuster à ma conso réelle</h2>
+    <div class="row">
+      <div>
+        <label for="myConso">Ma consommation</label>
+        <div class="unit"><input id="myConso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,0"><span>L/100</span></div>
+      </div>
+      <div>
+        <label for="mySpeed">à la vitesse</label>
+        <div class="unit"><input id="mySpeed" type="number" inputmode="decimal" step="10" min="0" placeholder="90"><span>km/h</span></div>
+      </div>
+    </div>
+    <button class="btn gray" id="adjustCurve">🎯 Ajuster toute la courbe à ce point</button>
+    <div class="hint">Toute la courbe est mise à l'échelle pour passer par votre point. Les autres points gardent la même forme.</div>
+
+    <h2>🌤️ Conditions manuelles (multiplicateurs)</h2>
+    <div id="conds"></div>
+    <button class="btn gray" id="addCond">+ Ajouter une condition</button>
+    <div class="hint">Ex. « remorque » 130 %. Multiplicateurs appliqués aux modes Itinéraire et Temps réel.</div>
+
+    <details class="info">
+      <summary>ℹ️ Les formules utilisées</summary>
+      <b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).
+      Montée +1 %, 1200 kg ≈ +1,35 L/100km ; descente autant en moins (plancher ≈ 0 : injection coupée).
+      <br><b>Vent</b> : surcroît = ½·1,2·CdA·(v_rel²−v²)·v, v_rel = vitesse ± vent axial.
+      25 km/h de face à 90 ≈ +1,8 L/100km ; vent arrière : économie symétrique.
+      <br><b>Pluie</b> : +5 % faible, +12 % forte (modèle : résistance de roulement mouillé + climatisation).
+      <br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;
+      un point étalonné remplace toute estimation à cette vitesse.
+    </details>
+  </div>
+</div>
+
+<!-- ===================== HISTORIQUE ===================== -->
+<div class="panel" id="p3">
+  <div class="card">
+    <h1>🕘 Historique</h1>
+    <div id="history"></div>
+    <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="mTitle">Détail</h2>
+    <div class="full" id="mFull"></div>
+    <div class="stats" id="mStats"></div>
+    <div class="chart2" id="mChart" style="display:none;"><div id="mChartIn"></div></div>
+    <button class="btn blue" id="mClose">Fermer</button>
+  </div>
+</div>
+</div>
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const num = (v) => parseFloat(String(v).replace(",", "."));
+const fmt = (x) => x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+const fmt1 = (x) => x.toFixed(1).replace(".", ",");
+function toast(msg) {
+  const t = el("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 2500);
+}
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+
+/* ---------- Sommes dans les champs péage (ex. "23,9+12,6") ---------- */
+function parseMoney(str) {
+  if (!str) return 0;
+  const s = String(str).replace(/\s/g, "").replace(/,/g, ".");
+  if (!/^[-+0-9.]+$/.test(s) || /[.]{2,}/.test(s)) return NaN; // sécurité : rien d'autre que chiffres, + , .
+  const parts = s.split("+");
+  let sum = 0;
+  for (const p of parts) {
+    if (p === "" || isNaN(parseFloat(p))) return NaN;
+    sum += parseFloat(p);
+  }
+  return sum;
+}
+function wireToll(inputId, metaId) {
+  const inp = el(inputId);
+  const upd = () => {
+    const v = parseMoney(inp.value);
+    if (inp.value.trim() === "") { el(metaId).textContent = ""; return; }
+    el(metaId).textContent = isNaN(v) ? "⛔ Expression invalide" : "Total : " + fmt(v);
+  };
+  inp.addEventListener("input", upd);
+  upd();
+}
+
+/* ---------- Onglets ---------- */
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  el(t.dataset.tab).classList.add("active");
+}));
+
+/* ---------- Réglages : prix, masse, aéro ---------- */
+el("price").value = store.get("trajet_price") || "";
+el("price").addEventListener("input", () => store.set("trajet_price", el("price").value));
+el("massVeh").value = store.get("trajet_massVeh") || "1200";
+el("massLoad").value = store.get("trajet_massLoad") || "0";
+el("cdA").value = store.get("trajet_cdA") || "0.65";
+el("maxSpeed").value = store.get("trajet_maxSpeed") || "130";
+["massVeh", "massLoad", "cdA", "maxSpeed"].forEach(id =>
+  el(id).addEventListener("input", () => {
+    store.set("trajet_" + id, el(id).value);
+    updMassTotal();
+  }));
+function updMassTotal() {
+  const m = (num(el("massVeh").value) || 0) + (num(el("massLoad").value) || 0);
+  el("massTotal").textContent = "Masse totale : " + m + " kg";
+}
+const getMass = () => (num(el("massVeh").value) || 1200) + (num(el("massLoad").value) || 0);
+const getCdA = () => num(el("cdA").value) || 0.65;
+const getMaxSpeed = () => num(el("maxSpeed").value) || 130;
+const getPrice = () => num(el("price").value);
+
+/* ---------- Physique ---------- */
+const E_L = 32.2e6;   // énergie essence ≈ 32,2 MJ/L
+const ETA = 0.27;     // rendement moteur ≈ 27 %
+const RHO = 1.2;      // densité air kg/m³
+function gradeEffect(grade) { // L/100km, signé (montée +, descente −)
+  return getMass() * 9.81 * grade / (E_L * ETA) * 100 * 1000;
+}
+function windEffect(vKmh, windAxialKmh) { // L/100km ; vent axial + = arrière
+  const v = vKmh / 3.6, w = (windAxialKmh || 0) / 3.6;
+  const vrel = v - w; // vitesse apparente (airspeed)
+  const dv = vrel * vrel - v * v; // v se simplifie sur 100 km : énergie = ½ρCdA·dv × 100 000 m
+  return 0.5 * RHO * getCdA() * dv / (E_L * ETA) * 100 * 1000;
+}
+
+/* ---------- Courbes ---------- */
+const REF_CURVES = {
+  "Citadine essence (Clio, 208…)": [[30,4.8],[50,4.3],[70,4.5],[90,5.2],[110,6.2],[130,7.4]],
+  "Compacte diesel (Golf, 308…)":  [[30,4.2],[50,3.8],[70,3.9],[90,4.5],[110,5.4],[130,6.6]],
+  "SUV essence (3008…)":           [[30,6.2],[50,5.6],[70,5.9],[90,6.8],[110,8.0],[130,9.6]]
+};
+function allCurves() {
+  let custom = {};
+  try { custom = JSON.parse(store.get("trajet_customCurves") || "{}") || {}; } catch (e) {}
+  return Object.assign({}, REF_CURVES, custom);
+}
+let currentCurveName = store.get("trajet_curveName") || "Citadine essence (Clio, 208…)";
+let curve = JSON.parse(store.get("trajet_curve") || "null") ||
+  REF_CURVES[currentCurveName] || REF_CURVES[Object.keys(REF_CURVES)[0]];
+let conds = JSON.parse(store.get("trajet_conds") || "null") || [];
+
+function interp(points, v) {
+  const p = points.slice().sort((a, b) => a[0] - b[0]);
+  if (!p.length) return 0;
+  if (v <= p[0][0]) return p[0][1];
+  if (v >= p[p.length - 1][0]) return p[p.length - 1][1];
+  for (let i = 1; i < p.length; i++) {
+    if (v <= p[i][0]) {
+      const [x0, y0] = p[i - 1], [x1, y1] = p[i];
+      return y0 + (y1 - y0) * (v - x0) / (x1 - x0);
+    }
+  }
+  return p[p.length - 1][1];
+}
+
+function renderCurveSelect() {
+  const sel = el("curveSelect");
+  const curves = allCurves();
+  sel.innerHTML = "";
+  Object.keys(curves).forEach(name => {
+    const o = document.createElement("option");
+    o.value = name;
+    o.textContent = name + (REF_CURVES[name] ? " (réf.)" : "");
+    sel.appendChild(o);
+  });
+  if (curves[currentCurveName]) sel.value = currentCurveName;
+  el("delCurve").style.display = REF_CURVES[currentCurveName] ? "none" : "block";
+}
+el("curveSelect").addEventListener("change", () => {
+  const curves = allCurves();
+  currentCurveName = el("curveSelect").value;
+  curve = curves[currentCurveName].map(p => p.slice());
+  store.set("trajet_curveName", currentCurveName);
+  store.set("trajet_curve", JSON.stringify(curve));
+  el("curveName").value = REF_CURVES[currentCurveName] ? "" : currentCurveName;
+  renderCurveTable();
+  renderCurveSelect();
+});
+el("saveCurveAs").addEventListener("click", () => {
+  const name = el("curveName").value.trim();
+  if (!name) { toast("Donnez un nom à la courbe"); return; }
+  let custom = {};
+  try { custom = JSON.parse(store.get("trajet_customCurves") || "{}") || {}; } catch (e) {}
+  custom[name] = curve.map(p => p.slice());
+  store.set("trajet_customCurves", JSON.stringify(custom));
+  currentCurveName = name;
+  store.set("trajet_curveName", name);
+  store.set("trajet_curve", JSON.stringify(curve));
+  renderCurveSelect();
+  toast("Courbe « " + name + " » enregistrée ✔");
+});
+el("delCurve").addEventListener("click", () => {
+  if (REF_CURVES[currentCurveName]) return;
+  if (!confirm("Supprimer la courbe « " + currentCurveName + " » ?")) return;
+  let custom = {};
+  try { custom = JSON.parse(store.get("trajet_customCurves") || "{}") || {}; } catch (e) {}
+  delete custom[currentCurveName];
+  store.set("trajet_customCurves", JSON.stringify(custom));
+  currentCurveName = Object.keys(REF_CURVES)[0];
+  curve = REF_CURVES[currentCurveName].map(p => p.slice());
+  store.set("trajet_curveName", currentCurveName);
+  store.set("trajet_curve", JSON.stringify(curve));
+  el("curveName").value = "";
+  renderCurveSelect();
+  renderCurveTable();
+  toast("Courbe supprimée");
+});
+
+function renderCurveTable() {
+  let html = "<table><tr><th>Vitesse (km/h)</th><th>Conso (L/100)</th><th></th></tr>";
+  curve.forEach((p, i) => {
+    html += "<tr>" +
+      '<td><input type="number" inputmode="decimal" step="10" data-ci="' + i + '" data-cf="v" value="' + p[0] + '"></td>' +
+      '<td><input type="number" inputmode="decimal" step="0.1" data-ci="' + i + '" data-cf="c" value="' + p[1] + '"></td>' +
+      '<td><button class="del" data-cdel="' + i + '">✕</button></td></tr>';
+  });
+  el("curveTable").innerHTML = html + "</table>";
+  store.set("trajet_curve", JSON.stringify(curve));
+}
+el("curveTable").addEventListener("input", (e) => {
+  const i = +e.target.dataset.ci, f = e.target.dataset.cf;
+  if (f === "v") curve[i][0] = num(e.target.value) || 0;
+  if (f === "c") curve[i][1] = num(e.target.value) || 0;
+  store.set("trajet_curve", JSON.stringify(curve));
+});
+el("curveTable").addEventListener("click", (e) => {
+  const d = e.target.dataset.cdel;
+  if (d !== undefined) { curve.splice(+d, 1); renderCurveTable(); }
+});
+el("addPoint").addEventListener("click", () => {
+  const last = curve.length ? curve[curve.length - 1] : [0, 5];
+  curve.push([last[0], last[1]]);
+  renderCurveTable();
+});
+el("adjustCurve").addEventListener("click", () => {
+  const mc = num(el("myConso").value), ms = num(el("mySpeed").value);
+  if (!(mc > 0) || !(ms > 0)) { toast("Renseignez conso et vitesse"); return; }
+  const ref = interp(curve, ms);
+  if (!(ref > 0)) { toast("Courbe invalide"); return; }
+  const k = mc / ref;
+  curve = curve.map(p => [p[0], Math.round(p[1] * k * 10) / 10]);
+  store.set("trajet_curve", JSON.stringify(curve));
+  renderCurveTable();
+  toast("Courbe ajustée (×" + k.toFixed(2) + ") ✔");
+});
+
+/* ---------- Conditions multiplicateurs ---------- */
+function renderConds() {
+  const c = el("conds");
+  c.innerHTML = "";
+  conds.forEach((cd, i) => {
+    const div = document.createElement("div");
+    div.className = "segment";
+    div.innerHTML =
+      '<div class="head">' +
+        '<input type="text" placeholder="Condition (ex. pluie)" data-di="' + i + '" data-df="n" value="' + (cd.name || "").replace(/"/g, "&quot;") + '">' +
+        '<div class="unit" style="flex:0 0 110px;"><input type="number" inputmode="decimal" step="1" placeholder="100" data-di="' + i + '" data-df="m" value="' + (cd.mult || 100) + '"><span>%</span></div>' +
+        '<button class="del" data-ddel="' + i + '">✕</button>' +
+      '</div>';
+    c.appendChild(div);
+  });
+  store.set("trajet_conds", JSON.stringify(conds));
+}
+el("conds").addEventListener("input", (e) => {
+  const i = +e.target.dataset.di, f = e.target.dataset.df;
+  if (f === "n") { conds[i].name = e.target.value; store.set("trajet_conds", JSON.stringify(conds)); }
+  if (f === "m") { conds[i].mult = num(e.target.value) || 100; store.set("trajet_conds", JSON.stringify(conds)); }
+});
+el("conds").addEventListener("click", (e) => {
+  const d = e.target.dataset.ddel;
+  if (d !== undefined) { conds.splice(+d, 1); renderConds(); }
+});
+el("addCond").addEventListener("click", () => {
+  conds.push({ name: "", mult: 100 });
+  renderConds();
+});
+function condFactor() {
+  let f = 1;
+  conds.forEach(c => { f *= (c.mult || 100) / 100; });
+  return f;
+}
+
+/* ---------- Niveau 1 : segments manuels ---------- */
+let segments = JSON.parse(store.get("trajet_segments") || "null") || [{ name: "", dist: "", rt: false }];
+
+function renderSegments() {
+  const c = el("segments");
+  c.innerHTML = "";
+  segments.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.className = "segment";
+    div.innerHTML =
+      '<div class="head">' +
+        '<input type="text" placeholder="Nom (ex. Domicile → Boulot)" data-i="' + i + '" data-f="name" value="' + (s.name || "").replace(/"/g, "&quot;") + '">' +
+        '<button class="del" data-del="' + i + '" title="Supprimer">✕</button>' +
+      '</div>' +
+      '<div class="row" style="margin-top:8px; align-items:center;">' +
+        '<div class="unit"><input type="number" inputmode="decimal" step="0.1" min="0" placeholder="0" data-i="' + i + '" data-f="dist" value="' + (s.dist || "") + '"><span>km</span></div>' +
+        '<div style="flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:0 4px;">' +
+          '<span style="font-size:.72rem; color:#94a3b8;">A-R</span>' +
+          '<label class="switch"><input type="checkbox" data-i="' + i + '" data-f="rt"' + (s.rt ? " checked" : "") + '><span class="slider"></span></label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="meta" data-meta="' + i + '"></div>';
+    c.appendChild(div);
+  });
+  compute();
+}
+el("segments").addEventListener("input", (e) => {
+  const t = e.target, i = +t.dataset.i, f = t.dataset.f;
+  if (f === undefined || isNaN(i)) return;
+  if (f === "dist") { segments[i].dist = t.value; compute(); }
+  if (f === "rt") { segments[i].rt = t.checked; compute(); }
+  if (f === "name") { segments[i].name = t.value; store.set("trajet_segments", JSON.stringify(segments)); }
+});
+el("segments").addEventListener("click", (e) => {
+  const d = e.target.dataset.del;
+  if (d !== undefined) { segments.splice(+d, 1); store.set("trajet_segments", JSON.stringify(segments)); renderSegments(); }
+});
+el("addSegment").addEventListener("click", () => {
+  segments.push({ name: "", dist: "", rt: false });
+  store.set("trajet_segments", JSON.stringify(segments));
+  renderSegments();
+  const inputs = el("segments").querySelectorAll('input[data-f="dist"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
+function compute() {
+  const price = getPrice();
+  const conso = num(el("conso").value);
+  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
+
+  store.set("trajet_conso", el("conso").value);
+  store.set("trajet_segments", JSON.stringify(segments));
+
+  if (!(price > 0) || !(conso > 0)) {
+    el("amount").textContent = "—";
+    el("detail").textContent = "Renseignez conso et prix (onglet Réglages)";
+    return;
+  }
+  let totalDist = 0, valid = false;
+  segments.forEach((s, i) => {
+    const d = num(s.dist);
+    const segDist = d > 0 ? (s.rt ? d * 2 : d) : 0;
+    if (segDist > 0) valid = true;
+    totalDist += segDist;
+    const meta = el("segments").querySelector('[data-meta="' + i + '"]');
+    if (meta) meta.textContent = segDist > 0
+      ? fmt1(segDist) + " km · " + fmt1(segDist / 100 * conso) + " L"
+      : "";
+  });
+  if (!valid) {
+    el("amount").textContent = "—";
+    el("detail").textContent = "Renseignez au moins une distance";
+    return;
+  }
+  const litres = totalDist / 100 * conso;
+  const fuel = litres * price;
+  const total = fuel + toll;
+  el("amount").textContent = fmt(total);
+  el("amount").dataset.val = String(total);
+  let detail = fmt1(totalDist) + " km · " + fmt1(litres) + " L · carburant " + fmt(fuel);
+  if (toll > 0) detail += " · péage " + fmt(toll);
+  el("detail").textContent = detail;
+}
+["conso", "hasToll"].forEach(id => {
+  el(id).addEventListener("input", compute);
+  el(id).addEventListener("change", compute);
+});
+el("hasToll").addEventListener("change", () =>
+  el("tollField").classList.toggle("show", el("hasToll").checked));
+
+/* ---------- Géoutils ---------- */
+function bearing(a, b) { // a,b = [lon,lat], cap en degrés [0-360]
+  const rad = Math.PI / 180;
+  const y = Math.sin((b[0] - a[0]) * rad) * Math.cos(b[1] * rad);
+  const x = Math.cos(a[1] * rad) * Math.sin(b[1] * rad) -
+    Math.sin(a[1] * rad) * Math.cos(b[1] * rad) * Math.cos((b[0] - a[0]) * rad);
+  return (Math.atan2(y, x) / rad + 360) % 360;
+}
+function haversine(a, b) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * rad, dLon = (b[0] - a[0]) * rad;
+  const s = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/* ---------- Destinations mémorisées (saisie assistée) ---------- */
+let dests = [];
+try { dests = JSON.parse(store.get("trajet_dests") || "[]") || []; } catch (e) { dests = []; }
+function renderDests() {
+  el("destList").innerHTML = dests.map(d =>
+    '<option value="' + d.replace(/"/g, "&quot;") + '"></option>').join("");
+}
+function addDest(name) {
+  const clean = String(name).trim();
+  if (!clean || dests.some(d => d.toLowerCase() === clean.toLowerCase())) return;
+  dests.unshift(clean);
+  if (dests.length > 20) dests.length = 20;
+  store.set("trajet_dests", JSON.stringify(dests));
+  renderDests();
+}
+
+/* ---------- Niveau 2 : itinéraire ---------- */
+function setStatus(msg, err) {
+  el("status").textContent = msg;
+  el("status").className = "status" + (err ? " err" : "");
+}
+el("wxOn").addEventListener("change", () =>
+  el("wxDrawer").classList.toggle("show", el("wxOn").checked));
+el("wxApi").addEventListener("change", () => {
+  el("wxApiOpts").style.display = el("wxApi").checked ? "block" : "none";
+  el("wxManualOpts").style.display = el("wxApi").checked ? "none" : "block";
+});
+el("wxApiOpts").style.display = "none";
+el("wxManualOpts").style.display = "block";
+el("hasToll2").addEventListener("change", () =>
+  el("tollField2").classList.toggle("show", el("hasToll2").checked));
+
+async function geocode(q) {
+  const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=fr&q=" +
+    encodeURIComponent(q);
+  const r = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!r.ok) throw new Error("service de géocodage indisponible");
+  const d = await r.json();
+  if (!d.length) throw new Error("adresse introuvable : « " + q + " »");
+  return [parseFloat(d[0].lon), parseFloat(d[0].lat), d[0].display_name];
+}
+async function getRoute(a, b) {
+  const url = "https://router.project-osrm.org/route/v1/driving/" +
+    a[0] + "," + a[1] + ";" + b[0] + "," + b[1] +
+    "?overview=full&geometries=geojson&annotations=speed,distance";
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("serveur OSRM indisponible");
+  const d = await r.json();
+  if (d.code !== "Ok" || !d.routes || !d.routes.length) throw new Error("itinéraire introuvable entre ces points");
+  return d.routes[0];
+}
+async function getElevations(coords) {
+  const N = Math.min(100, Math.max(2, Math.round(coords.length / 10)));
+  const lats = [], lons = [];
+  for (let i = 0; i < N; i++) {
+    const c = coords[Math.min(coords.length - 1, Math.round(i * (coords.length - 1) / (N - 1)))];
+    lats.push(c[1].toFixed(5));
+    lons.push(c[0].toFixed(5));
+  }
+  const url = "https://api.open-meteo.com/v1/elevation?latitude=" + lats.join(",") +
+    "&longitude=" + lons.join(",");
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("service d'élévation indisponible");
+  const d = await r.json();
+  // L'API peut renvoyer : [ {elevation}, … ] (plusieurs points) ou {elevation: [ … ]}
+  let elevs = null;
+  if (Array.isArray(d)) elevs = d.map(x => x && x.elevation);
+  else if (Array.isArray(d.elevation)) elevs = d.elevation;
+  else if (typeof d.elevation === "number") elevs = [d.elevation];
+  if (!elevs || !elevs.length || elevs.some(e => typeof e !== "number" || isNaN(e))) {
+    throw new Error("altitudes illisibles");
+  }
+  return elevs;
+}
+function computeGrades(elevs, totalKm) {
+  const n = elevs.length;
+  const stepKm = totalKm / (n - 1);
+  const smooth = elevs.map((e, i) => {
+    const a = elevs[Math.max(0, i - 1)], b = elevs[Math.min(n - 1, i + 1)];
+    return (a + e + b) / 3;
+  });
+  const grades = smooth.map((e, i) => {
+    if (i === n - 1) return 0; // patché après la construction (voir ligne suivante)
+    const dh = smooth[i + 1] - e;
+    return Math.max(-0.12, Math.min(0.12, dh / (stepKm * 1000)));
+  });
+  if (n > 1) grades[n - 1] = grades[n - 2]; // le dernier point garde la pente du précédent
+  return grades.map((g, i) => ({ d: i * stepKm, g }));
+}
+// Météo groupée le long du tracé (échantillons tous les ~10 km), une seule requête
+async function getWeatherRoute(samples, when) {
+  // samples: [{lat,lon,dKm,cap}] ; when: Date de passage approximatif par échantillon
+  const isPast = when < new Date(Date.now() - 3600 * 1000);
+  const base = isPast
+    ? "https://archive-api.open-meteo.com/v1/archive"
+    : "https://api.open-meteo.com/v1/forecast";
+  const params = "?latitude=" + samples.map(s => s.lat.toFixed(4)).join(",") +
+    "&longitude=" + samples.map(s => s.lon.toFixed(4)).join(",") +
+    "&hourly=wind_speed_10m,wind_direction_10m,precipitation,rain";
+  const past = isPast
+    ? "&start_date=" + when.toISOString().slice(0, 10) + "&end_date=" +
+      new Date(when.getTime() + 86400000).toISOString().slice(0, 10)
+    : "&forecast_days=16";
+  const r = await fetch(base + params + past);
+  if (!r.ok) throw new Error("service météo indisponible (HTTP " + r.status + ")");
+  const d = await r.json();
+  const list = Array.isArray(d) ? d : [d];
+  return list.map((loc, i) => {
+    const times = loc.hourly.time;
+    let best = 0, bestDiff = Infinity;
+    for (let t = 0; t < times.length; t++) {
+      const dt = new Date(times[t] + "Z");
+      const diff = Math.abs(dt - samples[i].when);
+      if (diff < bestDiff) { bestDiff = diff; best = t; }
+    }
+    const wind = loc.hourly.wind_speed_10m[best] || 0;
+    const wdir = loc.hourly.wind_direction_10m[best] || 0;
+    const rain = (loc.hourly.rain && loc.hourly.rain[best]) || loc.hourly.precipitation[best] || 0;
+    // Vent axial sur l'axe du trajet : + = arrière, − = de face
+    const axial = wind * Math.cos((wdir - samples[i].cap) * Math.PI / 180);
+    const rainMult = rain <= 0 ? 1 : (rain < 1 ? 1.05 : 1.12);
+    return { dKm: samples[i].dKm, axial, rain, rainMult };
+  });
+}
+
+function buildChart(profile, totalKm, targetId) {
+  const target = el(targetId);
+  const W = 440, H = 200, pad = 28;
+  const maxC = Math.max(...profile.map(p => p.conso), 1) * 1.1;
+  const maxV = Math.max(...profile.map(p => p.v), 1) * 1.1;
+  const x = (d) => pad + (d / Math.max(totalKm, 1)) * (W - pad - 8);
+  const yC = (c) => H - pad - (c / maxC) * (H - pad - 10);
+  const yV = (v) => H - pad - (v / maxV) * (H - pad - 10);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+  s += '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - 8) + '" y2="' + (H - pad) + '" stroke="#334155"/>';
+  s += '<line x1="' + pad + '" y1="10" x2="' + pad + '" y2="' + (H - pad) + '" stroke="#334155"/>';
+  s += '<line x1="' + (W - 30) + '" y1="10" x2="' + (W - 30) + '" y2="' + (H - pad) + '" stroke="#f59e0b" opacity=".35"/>';
+  const ptsC = profile.map(p => x(p.d).toFixed(1) + "," + yC(p.conso).toFixed(1)).join(" ");
+  const ptsV = profile.map(p => x(p.d).toFixed(1) + "," + yV(p.v).toFixed(1)).join(" ");
+  s += '<polyline points="' + ptsV + '" fill="none" stroke="#f59e0b" stroke-width="1.5" opacity=".7"/>';
+  s += '<polyline points="' + ptsC + '" fill="none" stroke="#38bdf8" stroke-width="2"/>';
+  const alts = profile.map(p => p.alt).filter(a => a !== null && a !== undefined);
+  if (alts.length === profile.length) {
+    const minA = Math.min(...alts), maxA = Math.max(...alts);
+    const span = Math.max(maxA - minA, 20);
+    const yA = (a) => (H - pad) - ((a - minA) / span) * ((H - pad - 10) * 0.45);
+    const ptsA = profile.map(p => x(p.d).toFixed(1) + "," + yA(p.alt).toFixed(1)).join(" ");
+    s += '<polyline points="' + ptsA + '" fill="none" stroke="#4ade80" stroke-width="1.5" opacity=".8"/>';
+    s += '<text x="' + pad + '" y="' + (H - pad - (H - pad - 10) * 0.45 - 4) + '" fill="#4ade80" font-size="9">' + Math.round(maxA) + ' m</text>';
+    s += '<text x="' + pad + '" y="' + (H - pad + 2) + '" fill="#4ade80" font-size="9">' + Math.round(minA) + ' m</text>';
+  }
+  s += '<text x="' + pad + '" y="' + (H - 8) + '" fill="#64748b" font-size="10">0 km</text>';
+  s += '<text x="' + (W - 60) + '" y="' + (H - 8) + '" fill="#64748b" font-size="10">' + fmt1(totalKm) + ' km</text>';
+  s += '<text x="' + (pad - 4) + '" y="16" fill="#64748b" font-size="10" text-anchor="end">' + maxC.toFixed(1) + '</text>';
+  s += '<text x="' + (pad - 4) + '" y="' + (H - pad) + '" fill="#64748b" font-size="10" text-anchor="end">0</text>';
+  const vSteps = Math.min(4, Math.max(2, Math.round(maxV / 30)));
+  for (let k = 0; k <= vSteps; k++) {
+    const v = maxV * k / vSteps;
+    const y = yV(v);
+    s += '<text x="' + (W - 26) + '" y="' + (y + 3) + '" fill="#f59e0b" font-size="10">' + Math.round(v) + '</text>';
+    if (k > 0) s += '<line x1="' + pad + '" y1="' + y.toFixed(1) + '" x2="' + (W - 30) + '" y2="' + y.toFixed(1) + '" stroke="#f59e0b" stroke-dasharray="2,4" opacity=".25"/>';
+  }
+  s += '<text x="' + (W - 30) + '" y="' + (H - 8) + '" fill="#f59e0b" font-size="10">km/h</text>';
+  s += '</svg>';
+  target.innerHTML = s;
+}
+
+let lastRouteResult = null;
+
+el("calcRoute").addEventListener("click", async () => {
+  const from = el("from").value.trim(), to = el("to").value.trim();
+  const price = getPrice();
+  if (!from || !to) { setStatus("Renseignez le départ et l'arrivée.", true); return; }
+  if (!(price > 0)) { setStatus("Renseignez le prix du carburant (Réglages).", true); return; }
+  el("calcRoute").disabled = true;
+  el("calcRoute").textContent = "⏳ Calcul en cours…";
+  el("result2").style.display = "none";
+  el("chartBox").style.display = "none";
+  el("saveBtn2").style.display = "none";
+  const t0 = Date.now();
+  try {
+    setStatus("1/4 — Recherche des adresses…");
+    const A = await geocode(from);
+    const B = await geocode(to);
+    setStatus("✓ Départ : " + A[2] + "\n✓ Arrivée : " + B[2] + "\n2/4 — Itinéraire OSRM…");
+    const route = await getRoute(A, B);
+    const oneWayKm = route.distance / 1000;
+    const coords = route.geometry.coordinates;
+    const times = route.legs.reduce((s, l) => s + l.duration, 0);
+    const avgKmh = oneWayKm / Math.max(times / 3600, 0.01);
+    setStatus("✓ Itinéraire (" + fmt1(oneWayKm) + " km)\n3/4 — Altitude…");
+
+    let gradeList = null, elevs = null;
+    try {
+      elevs = await getElevations(coords);
+      gradeList = computeGrades(elevs, oneWayKm);
+    } catch (e) { /* sans altitude → à plat */ }
+    let gradeErr = elevs && !gradeList;
+    const altAt = (dKm) => {
+      if (!elevs) return null;
+      const n = elevs.length, step = oneWayKm / (n - 1);
+      const i = Math.min(n - 2, Math.max(0, Math.floor(dKm / step)));
+      const t = Math.max(0, Math.min(1, (dKm - i * step) / step));
+      return elevs[i] + (elevs[i + 1] - elevs[i]) * t;
+    };
+
+    // Météo
+    let wxList = null, wxMode = null;
+    if (el("wxOn").checked) {
+      if (el("wxApi").checked) {
+        setStatus("✓ Altitude OK\n3,5/4 — Météo le long du trajet (tous les 10 km)…");
+        try {
+          const depDate = el("wxDate").value, depTime = el("wxTime").value || "08:00";
+          let when = null;
+          if (depDate) {
+            when = new Date(depDate + "T" + depTime + ":00");
+            if (isNaN(when)) when = null;
+            if (when && (when > new Date(Date.now() + 16 * 86400000))) {
+              throw new Error("date > 16 jours : prévisions impossibles, retirez la date");
+            }
+          }
+          const nb = Math.max(2, Math.min(50, Math.ceil(oneWayKm / 10) + 1));
+          const samples = [];
+          for (let i = 0; i < nb; i++) {
+            const dKm = oneWayKm * i / (nb - 1);
+            const idx = Math.min(coords.length - 1, Math.round(i * (coords.length - 1) / (nb - 1)));
+            const idx2 = Math.min(coords.length - 1, idx + 5);
+            samples.push({
+              lat: coords[idx][1], lon: coords[idx][0], dKm,
+              cap: bearing(coords[idx], coords[idx2]),
+              when: when || new Date(Date.now() + (dKm / Math.max(avgKmh, 1)) * 3600000)
+            });
+          }
+          wxList = await getWeatherRoute(samples, samples[0].when);
+          wxMode = when ? "réelle (" + (when < new Date() ? "archive" : "prévisions") + ")" : "réelle (actuelle)";
+        } catch (e) { setStatus("⚠ Météo réelle indisponible : " + e.message + " → bascule en simplifiée"); }
+      }
+    }
+
+    setStatus("4/4 — Calcul de la consommation…");
+
+    const ann = route.legs[0].annotation || {};
+    const annSpeed = ann.speed || null;
+    const annDist = ann.distance || null;
+
+    const maxSp = getMaxSpeed();
+    const f = condFactor();
+    const manualWind = parseFloat(el("wxWind").value) || 0;
+    const manualRainMult = parseFloat(el("wxRain").value) || 1;
+    const nSeg = annDist && annDist.length ? annDist.length : coords.length - 1;
+    let totalL = 0, Lslope = 0, Lwind = 0, Lbase = 0, LrainExtra = 0;
+    let nOsrm = 0, nDef = 0;
+    const rawProfile = [];
+    let cum = 0;
+    for (let i = 0; i < nSeg; i++) {
+      const segLenM = annDist ? annDist[i] : oneWayKm * 1000 / nSeg;
+      let v;
+      if (annSpeed && annSpeed.length > i && annSpeed[i] > 0) {
+        v = annSpeed[i] * 3.6; nOsrm++;
+      } else { v = 80; nDef++; }
+      v = Math.min(v, maxSp);
+      let grade = 0;
+      if (gradeList) {
+        let best = gradeList[0];
+        for (const g of gradeList) { if (Math.abs(g.d - cum) < Math.abs(best.d - cum)) best = g; }
+        grade = best.g;
+      }
+      let windAx = 0, rainMult = 1;
+      if (wxList) {
+        let best = wxList[0];
+        for (const w of wxList) { if (Math.abs(w.dKm - cum) < Math.abs(best.dKm - cum)) best = w; }
+        windAx = best.axial; rainMult = best.rainMult;
+      } else if (el("wxOn").checked && !el("wxApi").checked) {
+        windAx = manualWind; rainMult = manualRainMult;
+      }
+      const base = interp(curve, v) * f;
+      const grEff = gradeEffect(grade);
+      const wEff = windEffect(v, windAx);
+      const c = Math.max(0.05, (base + grEff + wEff) * rainMult);
+      const segKm = segLenM / 1000;
+      const segL = segKm / 100 * c;
+      totalL += segL;
+      Lbase += segKm / 100 * base;
+      Lslope += segKm / 100 * grEff;
+      Lwind += segKm / 100 * wEff;
+      if (rainMult > 1) LrainExtra += segL - segKm / 100 * (base + grEff + wEff);
+      rawProfile.push({ d: cum + segKm / 2, v, conso: c, len: segKm });
+      cum += segKm;
+    }
+
+    const roundTrip = el("roundTrip2").checked;
+    const distMult = roundTrip ? 2 : 1;
+    const totalKm = oneWayKm * distMult;
+    const totalL2 = totalL * distMult;
+
+    const tollVal = parseMoney(el("toll2").value);
+    const toll = el("hasToll2").checked ? ((isNaN(tollVal) ? 0 : tollVal) * distMult) : 0;
+    const fuel = totalL2 * price;
+    const total = fuel + toll;
+    const avgConso = totalL2 / totalKm * 100;
+
+    const NB = 80;
+    const profile = [];
+    for (let b = 0; b < NB; b++) {
+      const d0 = oneWayKm * b / NB, d1 = oneWayKm * (b + 1) / NB;
+      let wsum = 0, vsum = 0, csum = 0;
+      rawProfile.forEach(p => {
+        if (p.d >= d0 && p.d < d1) { wsum += p.len; vsum += p.v * p.len; csum += p.conso * p.len; }
+      });
+      if (wsum > 0) profile.push({ d: (d0 + d1) / 2, v: vsum / wsum, conso: csum / wsum,
+        alt: altAt((d0 + d1) / 2) });
+    }
+    if (!profile.length && rawProfile.length) profile.push(rawProfile[0]);
+
+    el("result2").style.display = "block";
+    el("amount2").textContent = fmt(total);
+    el("amount2").dataset.val = String(total);
+    let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + fmt1(totalL2) +
+      " L · moyenne " + fmt1(avgConso) + " L/100 · carburant " + fmt(fuel);
+    if (toll > 0) detail += " · péage " + fmt(toll);
+    detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
+      " · pente " + (Lslope >= 0 ? "+" : "") + fmt1(Lslope * distMult) + " L" +
+      " · vent " + (Lwind >= 0 ? "+" : "") + fmt1(Lwind * distMult) + " L" +
+      " · pluie +" + fmt1(LrainExtra * distMult) + " L";
+    el("detail2").textContent = detail;
+
+    buildChart(profile, oneWayKm, "chart");
+    el("chartBox").style.display = "block";
+    el("saveBtn2").style.display = "block";
+
+    setStatus("Terminé en " + ((Date.now() - t0) / 1000).toFixed(1) + " s. Vitesses : " + nOsrm +
+      " tronçons OSRM, " + nDef + " par défaut." +
+      (gradeList ? " Dénivelé intégré (" + elevs.length + " points d'altitude)."
+        : (gradeErr ? " ⚠ Altitudes reçues mais pentes non calculées."
+        : " ⚠ Altitude indisponible → à plat.")) +
+      (wxMode ? " Météo " + wxMode + "." :
+        (el("wxOn").checked ? " Météo simplifiée manuelle." : " Sans météo.")) +
+      "\nDurée estimée : " + Math.round(times / 60) + " min (simple). Résultat indicatif.");
+    lastRouteResult = { from, to, totalKm, total, avgConso, price, toll, roundTrip,
+      profile: profile.map(p => ({ d: +p.d.toFixed(3), v: +p.v.toFixed(1), conso: +p.conso.toFixed(2) })),
+      oneWayKm };
+    addDest(from);
+    addDest(to);
+  } catch (err) {
+    setStatus("❌ " + err.message, true);
+  } finally {
+    el("calcRoute").disabled = false;
+    el("calcRoute").textContent = "🚗 Calculer le coût";
+  }
+});
+
+/* ---------- Garde l'écran allumé pendant un trajet (Wake Lock) ---------- */
+let wakeLock = null;
+async function keepAwakeOn() {
+  try {
+    if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+  } catch (e) { /* non supporté ou refusé → l'écran pourra s'éteindre */ }
+}
+function keepAwakeOff() { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } }
+document.addEventListener("visibilitychange", () => {
+  // ré-acquisition après retour sur la page (si un trajet est en cours)
+  if (!document.hidden && wakeLock === null && watchId !== null) keepAwakeOn();
+});
+
+/* ---------- Niveau 3 : temps réel GPS ---------- */
+let watchId = null;
+let gpsTrip = null;
+const gStatus = (m, err) => { el("gpsStatus").textContent = m; el("gpsStatus").className = "status" + (err ? " err" : ""); };
+
+async function rtElevation(lat, lon) {
+  const r = await fetch("https://api.open-meteo.com/v1/elevation?latitude=" +
+    lat.toFixed(5) + "&longitude=" + lon.toFixed(5));
+  if (!r.ok) throw new Error("évation indisponible");
+  const d = await r.json();
+  return d.elevation && d.elevation[0];
+}
+async function rtWeather(lat, lon) {
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat.toFixed(4) +
+    "&longitude=" + lon.toFixed(4) + "&current=wind_speed_10m,wind_direction_10m,rain,precipitation");
+  if (!r.ok) throw new Error("météo indisponible");
+  const d = await r.json();
+  const c = d.current || {};
+  return { wind: c.wind_speed_10m || 0, dir: c.wind_direction_10m || 0,
+    rain: c.rain || c.precipitation || 0 };
+}
+
+el("gpsStart").addEventListener("click", () => {
+  if (!navigator.geolocation) { gStatus("La localisation n'est pas disponible dans ce navigateur.", true); return; }
+  gpsTrip = { dist: 0, litres: 0, last: null, prevDist: 0, t0: Date.now(), samples: 0,
+    altSamples: [], lastAltFetch: -99, lastWxFetch: -99, wx: null, lastCap: 0, lastV: 0,
+    lastConso: null, moveHist: [] };
+  el("gpsStart").style.display = "none";
+  el("gpsStop").style.display = "block";
+  el("gpsLive").style.display = "block";
+  el("gpsCalib").style.display = "block";
+  keepAwakeOn();
+  gStatus("En attente du signal GPS…");
+  watchId = navigator.geolocation.watchPosition((pos) => {
+    const v = pos.coords.speed !== null ? pos.coords.speed * 3.6 : null;
+    const acc = pos.coords.accuracy || 0;
+    const here = [pos.coords.longitude, pos.coords.latitude];
+    gpsTrip.samples++;
+    gStatus("Signal GPS (" + gpsTrip.samples + " pts, précision " + Math.round(acc) + " m)");
+
+    if (gpsTrip.last && acc < 30 && pos.coords.speed !== null && pos.coords.speed > 1) {
+      const d = haversine(gpsTrip.last, here) / 1000; // haversine → mètres, compteur → km
+      gpsTrip.dist += d;
+      if (d > 0.003) gpsTrip.lastCap = bearing(gpsTrip.last, here);
+    }
+    if (acc < 50) gpsTrip.last = here;
+
+    // Dénivelé : altitude tous les 2 km
+    if (gpsTrip.dist - gpsTrip.lastAltFetch > 2) {
+      gpsTrip.lastAltFetch = gpsTrip.dist;
+      rtElevation(here[1], here[0]).then(alt => {
+        gpsTrip.altSamples.push({ d: gpsTrip.dist, alt });
+        if (gpsTrip.altSamples.length > 6) gpsTrip.altSamples.shift();
+      }).catch(() => {});
+    }
+    let grade = 0;
+    const as = gpsTrip.altSamples;
+    if (as.length >= 2) {
+      const a = as[Math.max(0, as.length - 3)], b = as[as.length - 1];
+      const dd = b.d - a.d;
+      if (dd > 0.3) grade = Math.max(-0.12, Math.min(0.12, (b.alt - a.alt) / (dd * 1000)));
+    }
+
+    // Météo réelle : tous les 10 km
+    if (el("wxRt").checked && gpsTrip.dist - gpsTrip.lastWxFetch > 10) {
+      gpsTrip.lastWxFetch = gpsTrip.dist;
+      rtWeather(here[1], here[0]).then(w => { gpsTrip.wx = w; }).catch(() => {});
+    }
+    let windAx = 0, rainMult = 1;
+    if (el("wxRt").checked && gpsTrip.wx) {
+      windAx = gpsTrip.wx.wind * Math.cos((gpsTrip.wx.dir - gpsTrip.lastCap) * Math.PI / 180);
+      rainMult = gpsTrip.wx.rain <= 0 ? 1 : (gpsTrip.wx.rain < 1 ? 1.05 : 1.12);
+    }
+
+    const f = condFactor();
+    if (v !== null && v >= 3) {
+      const vc = Math.min(v, getMaxSpeed());
+      const base = interp(curve, vc) * f;
+      const grEff = gradeEffect(grade);
+      const wEff = windEffect(vc, windAx);
+      const c = Math.max(0.05, (base + grEff + wEff) * rainMult);
+      gpsTrip.lastConso = c;
+      gpsTrip.lastV = v;
+      el("gConso").textContent = fmt1(c) + " L/100";
+      el("gSpeed").textContent = Math.round(v) + " km/h";
+      el("gBreak").textContent = "base " + fmt1(base) + (grade ? " · pente " + (grEff >= 0 ? "+" : "") + fmt1(grEff) : "") +
+        (windAx ? " · vent " + (wEff >= 0 ? "+" : "") + fmt1(wEff) : "") +
+        (rainMult > 1 ? " · pluie ×" + rainMult : "");
+    } else if (v !== null && v < 3) {
+      el("gConso").textContent = "à l'arrêt";
+      el("gSpeed").textContent = "0 km/h";
+      el("gBreak").textContent = "";
+    } else {
+      el("gConso").textContent = "—";
+      el("gSpeed").textContent = "vitesse GPS indisponible";
+    }
+
+    if (gpsTrip.dist > gpsTrip.prevDist && gpsTrip.lastConso !== null) {
+      gpsTrip.litres += (gpsTrip.dist - gpsTrip.prevDist) / 100 * gpsTrip.lastConso;
+    }
+    gpsTrip.prevDist = gpsTrip.dist;
+
+    const price = getPrice();
+    const avg = gpsTrip.dist > 0.2 ? gpsTrip.litres / gpsTrip.dist * 100 : null;
+    el("gDist").textContent = fmt1(gpsTrip.dist) + " km";
+    el("gLitres").textContent = fmt1(gpsTrip.litres) + " L";
+    el("gCost").textContent = price > 0 ? fmt(gpsTrip.litres * price) : "— (prix ?)";
+    el("gAvg").textContent = avg ? fmt1(avg) + " L/100" : "—";
+    el("saveBtn3").style.display = "block";
+  }, (err) => {
+    gStatus("Erreur de localisation : " + err.message +
+      (err.code === 1 ? " (autorisation refusée)" : ""), true);
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+});
+
+el("gpsStop").addEventListener("click", () => {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  keepAwakeOff();
+  el("gpsStart").style.display = "block";
+  el("gpsStop").style.display = "none";
+  el("gpsCalib").style.display = "none";
+  gStatus("Trajet arrêté.");
+});
+
+el("gpsCalib").addEventListener("click", () => {
+  if (!gpsTrip || !(gpsTrip.lastV >= 10)) {
+    toast("Attendez une vitesse GPS stabilisée (≥ 10 km/h)");
+    return;
+  }
+  const input = prompt("Conso affichée au tableau de bord (L/100) à " + Math.round(gpsTrip.lastV) + " km/h ?", "");
+  if (input === null) return;
+  const c = num(input);
+  if (!(c > 0)) { toast("Valeur invalide"); return; }
+  const vNow = Math.round(gpsTrip.lastV);
+  const near = curve.findIndex(p => Math.abs(p[0] - vNow) <= 5);
+  if (near >= 0) curve[near] = [vNow, Math.round(c * 10) / 10];
+  else { curve.push([vNow, Math.round(c * 10) / 10]); }
+  store.set("trajet_curve", JSON.stringify(curve));
+  renderCurveTable();
+  toast("Point d'étalonnage ajouté : " + vNow + " km/h → " + c + " L/100 ✔");
+});
+
+el("saveBtn3").addEventListener("click", () => {
+  if (!gpsTrip || gpsTrip.dist < 0.1) { alert("Aucun trajet mesuré."); return; }
+  const price = getPrice();
+  const avg = gpsTrip.litres / gpsTrip.dist * 100;
+  const mins = Math.round((Date.now() - gpsTrip.t0) / 60000);
+  saveEntry("Temps réel",
+    fmt1(gpsTrip.dist) + " km en " + mins + " min",
+    price > 0 ? gpsTrip.litres * price : 0,
+    fmt1(avg) + " L/100 (moyenne GPS)",
+    { full: "Trajet GPS en temps réel\n" + fmt1(gpsTrip.dist) + " km · " + fmt1(gpsTrip.litres) + " L\n" +
+      (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné"),
+      litres: gpsTrip.litres, fuel: price > 0 ? gpsTrip.litres * price : null, toll: 0 });
+});
+
+/* ---------- Historique partagé (trajets + pleins) ---------- */
+let history = [];
+try { history = JSON.parse(store.get("trajet_history") || "[]") || []; } catch (e) { history = []; }
+const saveHistory = () => store.set("trajet_history", JSON.stringify(history));
+
+/* Réconciliation entre pleins :
+   - consommation réelle d'une période = litres remis au 2ᵉ plein (plein complet)
+   - trajets cochés de la période mis à l'échelle : L_ajusté = L_estimé × k
+   - coût ajusté = L_ajusté × prix au litre du plein précédent + péage
+   - période réconciliable seulement si les DEUX pleins sont complets */
+function reconcile() {
+  history.forEach(h => { if (h.type !== "Plein") h.adjusted = null; });
+  const sorted = history.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pleins = sorted.filter(h => h.type === "Plein");
+  let lastMsg = "Aucune période réconciliable (il faut 2 pleins complets consécutifs).";
+  for (let i = 0; i < pleins.length - 1; i++) {
+    const A = pleins[i], B = pleins[i + 1];
+    if (A.notFull || B.notFull) continue;
+    const trips = sorted.filter(h => h.type !== "Plein" && h.compte &&
+      (h.litres || 0) > 0 &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    const est = trips.reduce((s, t) => s + t.litres, 0);
+    if (!trips.length || est <= 0) continue;
+    const k = B.liters / est;
+    trips.forEach(t => {
+      t.adjusted = { litres: t.litres * k,
+        cost: t.litres * k * A.priceL + (t.toll || 0),
+        k: k, priceL: A.priceL };
+    });
+    lastMsg = "Période du " + new Date(A.date).toLocaleDateString("fr-FR") + " au " +
+      new Date(B.date).toLocaleDateString("fr-FR") + " : estimé " + fmt1(est) +
+      " L, réel " + fmt1(B.liters) + " L → facteur ×" + k.toFixed(3) +
+      " appliqué à " + trips.length + " trajet(s) coché(s).";
+  }
+  saveHistory();
+  el("pleinStatus").textContent = lastMsg;
+  return lastMsg;
+}
+
+function renderHistory() {
+  const c = el("history");
+  c.innerHTML = "";
+  const sorted = history.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+  el("clearHist").style.display = sorted.length ? "block" : "none";
+  if (!sorted.length) {
+    c.innerHTML = '<div class="empty">Aucun calcul enregistré pour l\'instant</div>';
+    return;
+  }
+  sorted.forEach(h => {
+    const div = document.createElement("div");
+    div.className = "hist-item" + (h.type === "Plein" ? " plein" : "");
+    const d = new Date(h.date);
+    const dateTxt = d.toLocaleDateString("fr-FR") + " " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (h.type === "Plein") {
+      div.innerHTML =
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">⛽ PLEIN <span class="mode">' + dateTxt + '</span>' +
+            (h.notFull ? ' <span class="badge">non complet</span>' : '') + '</div>' +
+          '<div class="desc" style="color:#4ade80;">' + fmt1(h.liters) + ' L à ' +
+            h.priceL.toFixed(3).replace(".", ",") + ' €/L · ' + fmt(h.liters * h.priceL) + '</div>' +
+        '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    } else {
+      const cost = h.adjusted ? h.adjusted.cost : h.total;
+      const badge = h.adjusted && Math.abs(h.adjusted.k - 1) > 0.001
+        ? ' <span class="badge">ajusté ×' + h.adjusted.k.toFixed(3) + '</span>' : '';
+      div.innerHTML =
+        '<input type="checkbox" class="cb" data-hcheck="' + h.id + '"' +
+          (h.compte !== false ? " checked" : "") + '>' +
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">' + dateTxt + ' <span class="mode">· ' + h.mode + '</span></div>' +
+          '<div class="desc">' + (h.desc || "") + badge + '</div>' +
+          (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
+        '</div>' +
+        '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;">' + fmt(cost) + '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    }
+    c.appendChild(div);
+  });
+}
+el("history").addEventListener("click", (e) => {
+  const chk = e.target.dataset.hcheck;
+  if (chk !== undefined) {
+    const h = history.find(x => String(x.id) === String(chk));
+    if (h) { h.compte = e.target.checked; saveHistory(); reconcile(); renderHistory(); }
+    return;
+  }
+  const open = e.target.dataset.hopen;
+  if (open !== undefined) {
+    const h = history.find(x => String(x.id) === String(open));
+    if (h) openDetail(h);
+  }
+});
+el("history").addEventListener("click", (e) => {
+  const id = e.target.dataset.hdel;
+  if (id === undefined) return;
+  const h = history.find(x => String(x.id) === String(id));
+  const label = h ? (h.type === "Plein" ? "ce plein" : (h.desc || "cette entrée")) : "cette entrée";
+  if (confirm("Supprimer « " + label + " » de l'historique ?")) {
+    history = history.filter(x => String(x.id) !== String(id));
+    saveHistory();
+    reconcile();
+    renderHistory();
+  }
+});
+el("clearHist").addEventListener("click", () => {
+  if (confirm("Supprimer TOUT l'historique (trajets et pleins) ?")) {
+    history = [];
+    saveHistory();
+    renderHistory();
+    reconcile();
+  }
+});
+
+/* Ajout d'un plein */
+el("addPlein").addEventListener("click", () => {
+  const priceL = num(el("flPrice").value);
+  const liters = num(el("flLitres").value);
+  if (!(priceL > 0) || !(liters > 0)) { toast("Prix au litre et litres remis requis"); return; }
+  const d = el("flDate").value || new Date().toISOString().slice(0, 10);
+  const t = (el("flTime").value || new Date().toTimeString().slice(0, 5)) + ":00";
+  const date = new Date(d + "T" + t);
+  if (isNaN(date)) { toast("Date/heure invalide"); return; }
+  history.push({ id: Date.now(), date: date.toISOString(), type: "Plein",
+    liters: liters, priceL: priceL, notFull: el("flNotFull").checked,
+    desc: "Plein " + fmt1(liters) + " L à " + priceL + " €/L" +
+      (el("flNotFull").checked ? " (non complet)" : "") });
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Plein ajouté ✔");
+});
+
+function saveEntry(mode, desc, total, conso, extra) {
+  extra = extra || {};
+  history.unshift({ id: Date.now(), date: new Date().toISOString(), mode, desc, total, conso,
+    litres: extra.litres || null, fuel: extra.fuel || null, toll: extra.toll || 0,
+    compte: true, adjusted: null,
+    full: extra.full || "", profile: extra.profile || null,
+    oneWayKm: extra.oneWayKm || 0 });
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Enregistré dans l'historique ✔");
+}
+el("saveBtn1").addEventListener("click", () => {
+  if (el("amount").textContent === "—") { alert("Rien à enregistrer : le calcul est incomplet."); return; }
+  const names = segments.map(s => s.name).filter(Boolean);
+  let desc = names.length
+    ? names.join(" + ")
+    : segments.filter(s => num(s.dist) > 0).map(s => num(s.dist) + (s.rt ? " km A-R" : " km")).join(" + ");
+  const conso = num(el("conso").value);
+  let dist = 0;
+  segments.forEach(s => {
+    const d = num(s.dist);
+    if (d > 0) dist += s.rt ? d * 2 : d;
+  });
+  const litres = dist / 100 * conso;
+  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
+  saveEntry("Manuel", desc, num(el("amount").dataset.val) || 0,
+    conso > 0 ? fmt1(conso) + " L/100" : "",
+    { litres: litres, fuel: litres * getPrice(), toll: isNaN(toll) ? 0 : toll });
+});
+el("saveBtn2").addEventListener("click", () => {
+  if (!lastRouteResult) return;
+  const litres = lastRouteResult.avgConso * lastRouteResult.totalKm / 100;
+  saveEntry("Itinéraire",
+    lastRouteResult.from + " → " + lastRouteResult.to +
+    " (" + fmt1(lastRouteResult.totalKm) + " km" + (lastRouteResult.roundTrip ? ", A-R" : "") + ")",
+    lastRouteResult.total,
+    fmt1(lastRouteResult.avgConso) + " L/100 (moyenne)",
+    { full: "Départ : " + lastRouteResult.from + "\nArrivée : " + lastRouteResult.to,
+      profile: lastRouteResult.profile, oneWayKm: lastRouteResult.oneWayKm,
+      litres: litres, fuel: litres * lastRouteResult.price, toll: lastRouteResult.toll });
+});
+
+/* ---------- Détail historique ---------- */
+el("mClose").addEventListener("click", () => el("modalBg").classList.remove("show"));
+el("modalBg").addEventListener("click", (e) => {
+  if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
+});
+function openDetail(h) {
+  if (h.type === "Plein") {
+    const d = new Date(h.date);
+    el("mTitle").textContent = "⛽ Plein — " + fmt(d);
+    el("mFull").textContent = (h.notFull ? "Ravitaillement partiel (pas un plein complet)\n" : "Plein complet\n") +
+      (h.desc || "");
+    el("mStats").textContent = "Litres remis : " + fmt1(h.liters) + " L · Prix : " +
+      h.priceL.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) +
+      " €/L · Total payé : " + fmt(h.liters * h.priceL) + " €" +
+      " · Le " + d.toLocaleDateString("fr-FR") + " à " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    el("mChart").style.display = "none";
+    el("modalBg").classList.add("show");
+    return;
+  }
+  el("mTitle").textContent = h.mode + " — " + fmt(h.total);
+  el("mFull").textContent = h.full || h.desc || "";
+  const d = new Date(h.date);
+  el("mStats").textContent = "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
+    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
+    (h.conso ? " · Conso : " + h.conso : "") + (h.desc ? " · " + h.desc : "");
+  if (h.profile && h.profile.length) {
+    buildChart(h.profile, h.oneWayKm, "mChartIn");
+    el("mChart").style.display = "block";
+  } else {
+    el("mChart").style.display = "none";
+  }
+  el("modalBg").classList.add("show");
+}
+
+/* ---------- Export / Import ---------- */
+el("expData").addEventListener("click", () => {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf("trajet_") === 0) data[k] = store.get(k);
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "frais-trajet-sauvegarde.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("Sauvegarde exportée ✔");
+});
+el("impData").addEventListener("click", () => el("impFile").click());
+el("impFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(String(r.result));
+      const keys = Object.keys(data);
+      let n = 0;
+      keys.forEach(k => {
+        if (k.indexOf("trajet_") === 0 && typeof data[k] === "string") { store.set(k, data[k]); n++; }
+      });
+      if (!n) { toast("Aucune donnée valide dans ce fichier"); return; }
+      toast("Import réussi ✔ Rechargement…");
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { toast("Fichier invalide"); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+
+/* ---------- Initialisation ---------- */
+const savedConso = store.get("trajet_conso");
+if (savedConso !== null) el("conso").value = savedConso;
+wireToll("toll", "tollParsed");
+wireToll("toll2", "toll2Parsed");
+{ const now = new Date();
+  el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  el("flTime").value = now.toTimeString().slice(0,5); }
+if (REF_CURVES[currentCurveName]) el("curveName").value = "";
+
+renderSegments();
+renderCurveSelect();
+renderCurveTable();
+renderConds();
+renderHistory();
+reconcile();
+renderDests();
+updMassTotal();
+</script>
+</body>
+</html>
