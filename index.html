@@ -354,11 +354,21 @@
         <label for="fdType">Type</label>
         <select id="fdType">
           <option value="annuelle">Par an (assurance…)</option>
-          <option value="unique">Unique, lissée sur 1 an (réparation…)</option>
+          <option value="unique">Unique, lissée (réparation…)</option>
         </select>
       </div>
       <div style="align-self:end;">
         <button class="btn blue" id="addFixed">➕ Ajouter</button>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="fdDate">Date de la dépense</label>
+        <input id="fdDate" type="date">
+      </div>
+      <div>
+        <label for="fdYears">Lisser sur</label>
+        <div class="unit"><input id="fdYears" type="number" inputmode="numeric" step="1" min="1" max="10" value="1"><span>an(s)</span></div>
       </div>
     </div>
 
@@ -378,9 +388,11 @@
     <label for="fdKmYear" style="margin-top:10px;">Ou km/an manuels (utilisé s'il n'y a pas 2 relevés)</label>
     <div class="unit"><input id="fdKmYear" type="number" inputmode="decimal" step="500" min="0" placeholder="12000"><span>km/an</span></div>
     <div class="meta" id="fixedStatus" style="text-align:left;"></div>
-    <div class="hint">Toutes les dépenses (annuelles + uniques lissées sur 1 an) sont divisées
-      par tes km/an (relevés si ≥ 2 relevés espacés d'au moins 7 jours, sinon valeur manuelle).
-      Le résultat en €/km est ajouté au coût de chaque trajet enregistré.</div>
+    <div class="hint">Dépenses annuelles : comptées chaque année. Dépenses uniques : divisées
+      par le nombre d'années de lissage et comptées seulement entre leur date et la fin
+      de l'amortissement. Le tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés
+      d'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au
+      coût de chaque trajet enregistré.</div>
 
     <h2>💾 Sauvegarde des données</h2>
     <div class="row">
@@ -1595,18 +1607,40 @@ function kmPerYear() {
 function fixedPerKm() {
   const kmy = kmPerYear();
   if (!kmy) return null;
+  const now = Date.now();
   let annual = 0;
-  fixedCosts.forEach(f => { const a = num(f.amount); if (a > 0) annual += a; });
+  fixedCosts.forEach(f => {
+    const a = num(f.amount);
+    if (!(a > 0)) return;
+    if (f.type === "annuelle") { annual += a; return; }
+    const yrs = Math.max(1, Math.round(num(f.years) || 1));
+    const start = f.date ? new Date(f.date).getTime() : NaN;
+    if (!isNaN(start) && (now < start || now > start + yrs * 365.25 * 86400000)) return; // hors période
+    annual += a / yrs;
+  });
   if (annual <= 0) return null;
   return { perKm: annual / kmy.val, annual: annual, kmy: kmy };
 }
 function renderFixed() {
-  el("fixedList").innerHTML = fixedCosts.map(f =>
-    '<div class="hist-item"><div class="left">' +
+  const now = Date.now();
+  el("fixedList").innerHTML = fixedCosts.map(f => {
+    let sub;
+    if (f.type === "annuelle") sub = fmt(num(f.amount)) + " · par an";
+    else {
+      const yrs = Math.max(1, Math.round(num(f.years) || 1));
+      const start = f.date ? new Date(f.date).getTime() : NaN;
+      const fin = new Date(start + yrs * 365.25 * 86400000);
+      const active = isNaN(start) || (now >= start && now <= start + yrs * 365.25 * 86400000);
+      sub = fmt(num(f.amount)) + " · " + fmt1(num(f.amount) / yrs) + "/an sur " + yrs + " an(s)";
+      if (!isNaN(start)) sub += " · du " + new Date(start).toLocaleDateString("fr-FR") +
+        " au " + fin.toLocaleDateString("fr-FR");
+      if (!active) sub += " · <span class=\"badge\">terminée</span>";
+    }
+    return '<div class="hist-item"><div class="left">' +
       '<div class="date">' + (f.type === "annuelle" ? "🔁" : "1️⃣") + " " + f.name + '</div>' +
-      '<div class="desc">' + fmt(num(f.amount)) + " · " +
-        (f.type === "annuelle" ? "par an" : "unique, lissée sur 1 an") + '</div>' +
-    '</div><button class="del" data-fdel="' + f.id + '">✕</button></div>').join("");
+      '<div class="desc">' + sub + '</div>' +
+    '</div><button class="del" data-fdel="' + f.id + '">✕</button></div>';
+  }).join("");
   const os = odometers.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
   el("odoList").innerHTML = os.map(o =>
     '<div class="hist-item"><div class="left">' +
@@ -1623,9 +1657,12 @@ el("addFixed").addEventListener("click", () => {
   const name = el("fdName").value.trim();
   const amount = num(el("fdAmount").value);
   if (!name || !(amount > 0)) { toast("Nom et montant requis"); return; }
+  const fd = el("fdDate").value;
   fixedCosts.push({ id: Date.now(), name: name, amount: amount,
-    type: el("fdType").value });
-  el("fdName").value = ""; el("fdAmount").value = "";
+    type: el("fdType").value,
+    date: fd ? new Date(fd + "T12:00:00").toISOString() : null,
+    years: Math.max(1, Math.round(num(el("fdYears").value) || 1)) });
+  el("fdName").value = ""; el("fdAmount").value = ""; el("fdDate").value = "";
   saveFixed(); renderFixed(); toast("Dépense ajoutée ✔");
 });
 el("addOdo").addEventListener("click", () => {
@@ -1700,7 +1737,8 @@ wireToll("toll2", "toll2Parsed");
 { const now = new Date();
   el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   el("flTime").value = now.toTimeString().slice(0,5);
-  el("odoDate").value = el("flDate").value; }
+  el("odoDate").value = el("flDate").value;
+  el("fdDate").value = el("flDate").value; }
 if (REF_CURVES[currentCurveName]) el("curveName").value = "";
 
 renderSegments();
