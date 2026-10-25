@@ -1335,3 +1335,384 @@ el("saveBtn3").addEventListener("click", () => {
   const price = getPrice();
   const avg = gpsTrip.litres / gpsTrip.dist * 100;
   const mins = Math.round((Date.now() - gpsTrip.t0) / 60000);
+  const fpk3 = fixedPerKm();
+  const fixed3 = fpk3 ? fpk3.perKm * gpsTrip.dist : 0;
+  saveEntry("Temps réel",
+    fmt1(gpsTrip.dist) + " km en " + mins + " min",
+    (price > 0 ? gpsTrip.litres * price : 0) + fixed3,
+    fmt1(avg) + " L/100 (moyenne GPS)",
+    { full: "Trajet GPS en temps réel\n" + fmt1(gpsTrip.dist) + " km · " + fmt1(gpsTrip.litres) + " L\n" +
+      (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné"),
+      litres: gpsTrip.litres, fuel: price > 0 ? gpsTrip.litres * price : null, toll: 0,
+      fixed: fixed3, dist: gpsTrip.dist });
+});
+
+/* ---------- Historique partagé (trajets + pleins) ---------- */
+let history = [];
+try { history = JSON.parse(store.get("trajet_history") || "[]") || []; } catch (e) { history = []; }
+const saveHistory = () => store.set("trajet_history", JSON.stringify(history));
+
+/* Réconciliation entre pleins :
+   - consommation réelle d'une période = litres remis au 2ᵉ plein (plein complet)
+   - trajets cochés de la période mis à l'échelle : L_ajusté = L_estimé × k
+   - coût ajusté = L_ajusté × prix au litre du plein précédent + péage
+   - période réconciliable seulement si les DEUX pleins sont complets */
+function reconcile() {
+  history.forEach(h => { if (h.type !== "Plein") h.adjusted = null; });
+  const sorted = history.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pleins = sorted.filter(h => h.type === "Plein");
+  let lastMsg = "Aucune période réconciliable (il faut 2 pleins complets consécutifs).";
+  for (let i = 0; i < pleins.length - 1; i++) {
+    const A = pleins[i], B = pleins[i + 1];
+    if (A.notFull || B.notFull) continue;
+    const trips = sorted.filter(h => h.type !== "Plein" && h.compte &&
+      (h.litres || 0) > 0 &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    const est = trips.reduce((s, t) => s + t.litres, 0);
+    if (!trips.length || est <= 0) continue;
+    const k = B.liters / est;
+    trips.forEach(t => {
+      t.adjusted = { litres: t.litres * k,
+        cost: t.litres * k * A.priceL + (t.toll || 0) + (t.fixed || 0),
+        k: k, priceL: A.priceL };
+    });
+    lastMsg = "Période du " + new Date(A.date).toLocaleDateString("fr-FR") + " au " +
+      new Date(B.date).toLocaleDateString("fr-FR") + " : estimé " + fmt1(est) +
+      " L, réel " + fmt1(B.liters) + " L → facteur ×" + k.toFixed(3) +
+      " appliqué à " + trips.length + " trajet(s) coché(s).";
+  }
+  saveHistory();
+  el("pleinStatus").textContent = lastMsg;
+  return lastMsg;
+}
+
+function renderHistory() {
+  const c = el("history");
+  c.innerHTML = "";
+  const sorted = history.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+  el("clearHist").style.display = sorted.length ? "block" : "none";
+  if (!sorted.length) {
+    c.innerHTML = '<div class="empty">Aucun calcul enregistré pour l\'instant</div>';
+    return;
+  }
+  sorted.forEach(h => {
+    const div = document.createElement("div");
+    div.className = "hist-item" + (h.type === "Plein" ? " plein" : "");
+    const d = new Date(h.date);
+    const dateTxt = d.toLocaleDateString("fr-FR") + " " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (h.type === "Plein") {
+      div.innerHTML =
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">⛽ PLEIN <span class="mode">' + dateTxt + '</span>' +
+            (h.notFull ? ' <span class="badge">non complet</span>' : '') + '</div>' +
+          '<div class="desc" style="color:#4ade80;">' + fmt1(h.liters) + ' L à ' +
+            h.priceL.toFixed(3).replace(".", ",") + ' €/L · ' + fmt(h.liters * h.priceL) + '</div>' +
+        '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    } else {
+      const cost = h.adjusted ? h.adjusted.cost : h.total;
+      const badge = h.adjusted && Math.abs(h.adjusted.k - 1) > 0.001
+        ? ' <span class="badge">ajusté ×' + h.adjusted.k.toFixed(3) + '</span>' : '';
+      div.innerHTML =
+        '<input type="checkbox" class="cb" data-hcheck="' + h.id + '"' +
+          (h.compte !== false ? " checked" : "") + '>' +
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">' + dateTxt + ' <span class="mode">· ' + h.mode + '</span></div>' +
+          '<div class="desc">' + (h.desc || "") + badge + '</div>' +
+          (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
+        '</div>' +
+        '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;">' + fmt(cost) + '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    }
+    c.appendChild(div);
+  });
+}
+el("history").addEventListener("click", (e) => {
+  const chk = e.target.dataset.hcheck;
+  if (chk !== undefined) {
+    const h = history.find(x => String(x.id) === String(chk));
+    if (h) { h.compte = e.target.checked; saveHistory(); reconcile(); renderHistory(); }
+    return;
+  }
+  const open = e.target.dataset.hopen;
+  if (open !== undefined) {
+    const h = history.find(x => String(x.id) === String(open));
+    if (h) openDetail(h);
+  }
+});
+el("history").addEventListener("click", (e) => {
+  const id = e.target.dataset.hdel;
+  if (id === undefined) return;
+  const h = history.find(x => String(x.id) === String(id));
+  const label = h ? (h.type === "Plein" ? "ce plein" : (h.desc || "cette entrée")) : "cette entrée";
+  if (confirm("Supprimer « " + label + " » de l'historique ?")) {
+    history = history.filter(x => String(x.id) !== String(id));
+    saveHistory();
+    reconcile();
+    renderHistory();
+  }
+});
+el("clearHist").addEventListener("click", () => {
+  if (confirm("Supprimer TOUT l'historique (trajets et pleins) ?")) {
+    history = [];
+    saveHistory();
+    renderHistory();
+    reconcile();
+  }
+});
+
+/* Ajout d'un plein */
+el("addPlein").addEventListener("click", () => {
+  const priceL = num(el("flPrice").value);
+  const liters = num(el("flLitres").value);
+  if (!(priceL > 0) || !(liters > 0)) { toast("Prix au litre et litres remis requis"); return; }
+  const d = el("flDate").value || new Date().toISOString().slice(0, 10);
+  const t = (el("flTime").value || new Date().toTimeString().slice(0, 5)) + ":00";
+  const date = new Date(d + "T" + t);
+  if (isNaN(date)) { toast("Date/heure invalide"); return; }
+  history.push({ id: Date.now(), date: date.toISOString(), type: "Plein",
+    liters: liters, priceL: priceL, notFull: el("flNotFull").checked,
+    desc: "Plein " + fmt1(liters) + " L à " + priceL + " €/L" +
+      (el("flNotFull").checked ? " (non complet)" : "") });
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Plein ajouté ✔");
+});
+
+function saveEntry(mode, desc, total, conso, extra) {
+  extra = extra || {};
+  history.unshift({ id: Date.now(), date: new Date().toISOString(), mode, desc, total, conso,
+    litres: extra.litres || null, fuel: extra.fuel || null, toll: extra.toll || 0,
+    fixed: extra.fixed || 0, dist: extra.dist || 0, compte: true, adjusted: null,
+    full: extra.full || "", profile: extra.profile || null,
+    oneWayKm: extra.oneWayKm || 0 });
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Enregistré dans l'historique ✔");
+}
+el("saveBtn1").addEventListener("click", () => {
+  if (el("amount").textContent === "—") { alert("Rien à enregistrer : le calcul est incomplet."); return; }
+  const names = segments.map(s => s.name).filter(Boolean);
+  let desc = names.length
+    ? names.join(" + ")
+    : segments.filter(s => num(s.dist) > 0).map(s => num(s.dist) + (s.rt ? " km A-R" : " km")).join(" + ");
+  const conso = num(el("conso").value);
+  let dist = 0;
+  segments.forEach(s => {
+    const d = num(s.dist);
+    if (d > 0) dist += s.rt ? d * 2 : d;
+  });
+  const litres = dist / 100 * conso;
+  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
+  const fpk = fixedPerKm();
+  const fixed = fpk ? fpk.perKm * dist : 0;
+  saveEntry("Manuel", desc,
+    (num(el("amount").dataset.val) || 0) + fixed,
+    conso > 0 ? fmt1(conso) + " L/100" : "",
+    { litres: litres, fuel: litres * getPrice(), toll: isNaN(toll) ? 0 : toll,
+      fixed: fixed, dist: dist });
+});
+el("saveBtn2").addEventListener("click", () => {
+  if (!lastRouteResult) return;
+  const litres = lastRouteResult.avgConso * lastRouteResult.totalKm / 100;
+  const fpk2 = fixedPerKm();
+  const fixed2 = fpk2 ? fpk2.perKm * lastRouteResult.totalKm : 0;
+  saveEntry("Itinéraire",
+    lastRouteResult.from + " → " + lastRouteResult.to +
+    " (" + fmt1(lastRouteResult.totalKm) + " km" + (lastRouteResult.roundTrip ? ", A-R" : "") + ")",
+    lastRouteResult.total + fixed2,
+    fmt1(lastRouteResult.avgConso) + " L/100 (moyenne)",
+    { full: "Départ : " + lastRouteResult.from + "\nArrivée : " + lastRouteResult.to,
+      profile: lastRouteResult.profile, oneWayKm: lastRouteResult.oneWayKm,
+      litres: litres, fuel: litres * lastRouteResult.price, toll: lastRouteResult.toll,
+      fixed: fixed2, dist: lastRouteResult.totalKm });
+});
+
+/* ---------- Détail historique ---------- */
+el("mClose").addEventListener("click", () => el("modalBg").classList.remove("show"));
+el("modalBg").addEventListener("click", (e) => {
+  if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
+});
+function openDetail(h) {
+  if (h.type === "Plein") {
+    const d = new Date(h.date);
+    el("mTitle").textContent = "⛽ Plein — " + fmt(d);
+    el("mFull").textContent = (h.notFull ? "Ravitaillement partiel (pas un plein complet)\n" : "Plein complet\n") +
+      (h.desc || "");
+    el("mStats").textContent = "Litres remis : " + fmt1(h.liters) + " L · Prix : " +
+      h.priceL.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) +
+      " €/L · Total payé : " + fmt(h.liters * h.priceL) + " €" +
+      " · Le " + d.toLocaleDateString("fr-FR") + " à " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    el("mChart").style.display = "none";
+    el("modalBg").classList.add("show");
+    return;
+  }
+  el("mTitle").textContent = h.mode + " — " + fmt(h.total);
+  el("mFull").textContent = h.full || h.desc || "";
+  const d = new Date(h.date);
+  const parts = [];
+  if (h.fuel != null && h.fuel > 0) parts.push("⛽ Essence : " + fmt(h.fuel) +
+    (h.litres ? " (" + fmt1(h.litres) + " L)" : ""));
+  if (h.toll > 0) parts.push("🛂 Péage : " + fmt(h.toll));
+  if (h.fixed > 0) parts.push("🔧 Coûts fixes véhicule : " + fmt(h.fixed));
+  if (parts.length) parts.push("💰 Total : " + fmt(h.total));
+  el("mStats").textContent = "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
+    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
+    (h.conso ? " · Conso : " + h.conso : "") + (h.desc ? " · " + h.desc : "") +
+    (parts.length ? "\n" + parts.join("\n") : "");
+  if (h.profile && h.profile.length) {
+    buildChart(h.profile, h.oneWayKm, "mChartIn");
+    el("mChart").style.display = "block";
+  } else {
+    el("mChart").style.display = "none";
+  }
+  el("modalBg").classList.add("show");
+}
+
+/* ---------- Coûts fixes du véhicule ---------- */
+let fixedCosts = [];
+try { fixedCosts = JSON.parse(store.get("trajet_fixed") || "[]") || []; } catch (e) { fixedCosts = []; }
+let odometers = [];
+try { odometers = JSON.parse(store.get("trajet_odo") || "[]") || []; } catch (e) { odometers = []; }
+const saveFixed = () => store.set("trajet_fixed", JSON.stringify(fixedCosts));
+const saveOdo = () => store.set("trajet_odo", JSON.stringify(odometers));
+
+function kmPerYear() {
+  const sorted = odometers.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (sorted.length >= 2) {
+    const days = (new Date(sorted[sorted.length - 1].date) - new Date(sorted[0].date)) / 86400000;
+    const km = num(sorted[sorted.length - 1].km) - num(sorted[0].km);
+    if (days >= 7 && km > 0) return { val: km / days * 365, source: "relevés compteur" };
+  }
+  const man = num(el("fdKmYear").value);
+  if (man > 0) return { val: man, source: "valeur manuelle" };
+  return null;
+}
+function fixedPerKm() {
+  const kmy = kmPerYear();
+  if (!kmy) return null;
+  let annual = 0;
+  fixedCosts.forEach(f => { const a = num(f.amount); if (a > 0) annual += a; });
+  if (annual <= 0) return null;
+  return { perKm: annual / kmy.val, annual: annual, kmy: kmy };
+}
+function renderFixed() {
+  el("fixedList").innerHTML = fixedCosts.map(f =>
+    '<div class="hist-item"><div class="left">' +
+      '<div class="date">' + (f.type === "annuelle" ? "🔁" : "1️⃣") + " " + f.name + '</div>' +
+      '<div class="desc">' + fmt(num(f.amount)) + " · " +
+        (f.type === "annuelle" ? "par an" : "unique, lissée sur 1 an") + '</div>' +
+    '</div><button class="del" data-fdel="' + f.id + '">✕</button></div>').join("");
+  const os = odometers.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  el("odoList").innerHTML = os.map(o =>
+    '<div class="hist-item"><div class="left">' +
+      '<div class="date">🛣️ ' + new Date(o.date).toLocaleDateString("fr-FR") + '</div>' +
+      '<div class="desc">' + num(o.km).toLocaleString("fr-FR") + ' km au compteur</div>' +
+    '</div><button class="del" data-odel="' + o.id + '">✕</button></div>').join("");
+  const r = fixedPerKm();
+  el("fixedStatus").textContent = !r
+    ? "Ajoute des dépenses + 2 relevés de compteur (ou des km/an manuels) pour obtenir le coût fixe au km."
+    : "Total : " + fmt(r.annual) + "/an · " + fmt1(r.kmy.val) + " km/an (" + r.kmy.source +
+      ") → " + r.perKm.toFixed(3).replace(".", ",") + " €/km";
+}
+el("addFixed").addEventListener("click", () => {
+  const name = el("fdName").value.trim();
+  const amount = num(el("fdAmount").value);
+  if (!name || !(amount > 0)) { toast("Nom et montant requis"); return; }
+  fixedCosts.push({ id: Date.now(), name: name, amount: amount,
+    type: el("fdType").value });
+  el("fdName").value = ""; el("fdAmount").value = "";
+  saveFixed(); renderFixed(); toast("Dépense ajoutée ✔");
+});
+el("addOdo").addEventListener("click", () => {
+  const d = el("odoDate").value;
+  const km = num(el("odoKm").value);
+  if (!d || !(km > 0)) { toast("Date et km requis"); return; }
+  odometers.push({ id: Date.now(), date: new Date(d + "T12:00:00").toISOString(), km: km });
+  el("odoKm").value = "";
+  saveOdo(); renderFixed(); toast("Relevé ajouté ✔");
+});
+el("fixedList").addEventListener("click", (e) => {
+  const id = e.target.dataset.fdel;
+  if (id === undefined) return;
+  fixedCosts = fixedCosts.filter(f => String(f.id) !== String(id));
+  saveFixed(); renderFixed();
+});
+el("odoList").addEventListener("click", (e) => {
+  const id = e.target.dataset.odel;
+  if (id === undefined) return;
+  odometers = odometers.filter(o => String(o.id) !== String(id));
+  saveOdo(); renderFixed();
+});
+el("fdKmYear").addEventListener("input", () => {
+  store.set("trajet_kmYear", el("fdKmYear").value);
+  renderFixed();
+});
+
+/* ---------- Export / Import ---------- */
+el("expData").addEventListener("click", () => {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf("trajet_") === 0) data[k] = store.get(k);
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "frais-trajet-sauvegarde.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("Sauvegarde exportée ✔");
+});
+el("impData").addEventListener("click", () => el("impFile").click());
+el("impFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(String(r.result));
+      const keys = Object.keys(data);
+      let n = 0;
+      keys.forEach(k => {
+        if (k.indexOf("trajet_") === 0 && typeof data[k] === "string") { store.set(k, data[k]); n++; }
+      });
+      if (!n) { toast("Aucune donnée valide dans ce fichier"); return; }
+      toast("Import réussi ✔ Rechargement…");
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { toast("Fichier invalide"); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+
+/* ---------- Initialisation ---------- */
+const savedConso = store.get("trajet_conso");
+if (savedConso !== null) el("conso").value = savedConso;
+wireToll("toll", "tollParsed");
+wireToll("toll2", "toll2Parsed");
+{ const now = new Date();
+  el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  el("flTime").value = now.toTimeString().slice(0,5);
+  el("odoDate").value = el("flDate").value; }
+if (REF_CURVES[currentCurveName]) el("curveName").value = "";
+
+renderSegments();
+renderCurveSelect();
+renderCurveTable();
+renderConds();
+renderHistory();
+reconcile();
+renderDests();
+renderFixed();
+if (store.get("trajet_kmYear") !== null) el("fdKmYear").value = store.get("trajet_kmYear");
+updMassTotal();
+</script>
+</body>
+</html>
