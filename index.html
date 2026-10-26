@@ -26,12 +26,23 @@
   .unit { position: relative; }
   .unit span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .8rem; pointer-events: none; }
   .unit input { padding-right: 54px; }
-  .tabs { display: flex; margin: 16px 16px 0; gap: 4px; }
-  .tab { flex: 1; padding: 12px 2px; text-align: center; background: #1e293b; color: #94a3b8;
-    border: none; border-radius: 12px 12px 0 0; font-size: .72rem; font-weight: 600; cursor: pointer; }
-  .tab.active { background: #38bdf8; color: #0f172a; }
+  .home-btn { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 8px 16px;
+    padding: 15px 16px; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 14px;
+    font-size: .95rem; font-weight: 600; cursor: pointer; text-align: left; }
+  .home-btn .sub { font-size: .72rem; color: #94a3b8; font-weight: 400; margin-left: auto; }
+  .home-btn.open { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+  .home-btn.open .sub { color: #0f172a; }
   .panel { display: none; }
-  .panel.active { display: block; }
+  .panel.open { display: block; }
+  .seg { display: flex; gap: 6px; margin-bottom: 14px; }
+  .seg-btn { flex: 1; padding: 10px 4px; background: #0f172a; color: #94a3b8; border: 1px solid #334155;
+    border-radius: 12px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .seg-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+  .load-chip { display: inline-flex; align-items: center; margin: 4px 4px 0 0; padding: 8px 12px;
+    background: #0f172a; border: 1px solid #334155; border-radius: 999px; color: #e2e8f0;
+    font-size: .8rem; cursor: pointer; }
+  .load-chip.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 700; }
+  .load-chip .x { color: #f87171; font-weight: 700; margin-left: 6px; }
   .toggle { display: flex; align-items: center; justify-content: space-between;
     background: #0f172a; border-radius: 12px; padding: 12px 14px; border: 1px solid #334155; margin-top: 10px; }
   .toggle .tlabel { color: #e2e8f0; font-size: .9rem; }
@@ -105,18 +116,31 @@
 <body>
 <div class="wrap">
 
-<div class="tabs">
-  <button class="tab active" data-tab="p1">🛣️ Manuel</button>
-  <button class="tab" data-tab="p2">🗺️ Itinéraire</button>
-  <button class="tab" data-tab="p5">📊 Temps réel</button>
-  <button class="tab" data-tab="p4">⚙️ Réglages</button>
-  <button class="tab" data-tab="p3">🕘 Historique</button>
+<!-- Carte poids transporté (toujours visible) -->
+<div class="card" id="loadCard">
+  <h1>🧳 Poids transporté</h1>
+  <div class="subtitle">À régler avant chaque trajet</div>
+  <div id="loadChips"></div>
+  <div class="row">
+    <div>
+      <label for="massLoad">Poids total transporté</label>
+      <div class="unit"><input id="massLoad" type="number" inputmode="decimal" step="10" min="0" value="0"><span>kg</span></div>
+    </div>
+  </div>
+  <div class="meta" id="massTotal"></div>
+  <div class="hint">Utilisé pour l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.
+    Crée tes préréglages : 1 personne, 2 adultes 1 enfant, bagage 25 kg…</div>
 </div>
 
-<!-- ===================== NIVEAU 1 : MANUEL ===================== -->
-<div class="panel active" id="p1">
+<button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">km ou adresse</span></button>
+<div class="panel" id="p1">
   <div class="card">
     <h1>⛽ Coût de trajet</h1>
+    <div class="seg">
+      <button class="seg-btn active" id="mDistBtn">📏 Distance</button>
+      <button class="seg-btn" id="mRouteBtn">🗺️ Adresse</button>
+    </div>
+    <div id="manualDist">
     <div class="subtitle">Niveau 1 — saisie manuelle</div>
 
     <label for="conso">Conso du véhicule (L/100km)</label>
@@ -148,11 +172,9 @@
       (réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).
       Ce mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel.
     </details>
+    </div>
   </div>
-</div>
-
-<!-- ===================== NIVEAU 2 : ITINÉRAIRE ===================== -->
-<div class="panel" id="p2">
+  <div id="manualRoute" style="display:none;">
   <div class="card">
     <h1>🗺️ Itinéraire</h1>
     <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu)</div>
@@ -248,9 +270,9 @@
     </details>
     <button class="btn blue" id="saveBtn2" style="display:none;">💾 Enregistrer ce calcul</button>
   </div>
+  </div>
 </div>
-
-<!-- ===================== NIVEAU 3 : TEMPS RÉEL GPS ===================== -->
+<button class="home-btn" data-acc="p5">📍 Temps réel <span class="sub">GPS</span></button>
 <div class="panel" id="p5">
   <div class="card">
     <h1>📊 Temps réel</h1>
@@ -296,17 +318,9 @@
     </details>
   </div>
 </div>
-
-<!-- ===================== RÉGLAGES ===================== -->
-<div class="panel" id="p4">
+<button class="home-btn" data-acc="p3">⛽ Historique &amp; pleins <span class="sub">trajets, conso réelle</span></button>
+<div class="panel" id="p3">
   <div class="card">
-    <h1>⚙️ Réglages</h1>
-    <div class="subtitle">Tout est mémorisé sur l'appareil</div>
-
-    <h2>⛽ Carburant</h2>
-    <label for="price">Prix du litre</label>
-    <div class="unit"><input id="price" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,75"><span>€/L</span></div>
-
     <h2>⛽ Pleins d'essence</h2>
     <div class="row">
       <div>
@@ -345,6 +359,88 @@
     <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
     <div class="hint">Entre deux pleins complets, les trajets cochés de l'historique sont
       recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.</div>
+
+    <h1>🕘 Historique</h1>
+    <button class="btn blue" id="quickPlein" style="margin-top:0;">⛽ Ajouter un plein</button>
+    <div id="qForm" style="display:none; margin-top:12px; background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px;">
+      <div class="row">
+        <div>
+          <label for="qLitres">Litres remis</label>
+          <div class="unit"><input id="qLitres" type="number" inputmode="decimal" step="0.1" min="0" placeholder="40,2"><span>L</span></div>
+        </div>
+        <div>
+          <label for="qPrice">Prix</label>
+          <div class="unit"><input id="qPrice" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,782"><span>€/L</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="qOdo">Km au compteur</label>
+          <div class="unit"><input id="qOdo" type="number" inputmode="decimal" step="100" min="0" placeholder="95000"><span>km</span></div>
+        </div>
+        <div>
+          <label for="qDate">Date</label>
+          <input id="qDate" type="date">
+        </div>
+      </div>
+      <div class="toggle">
+        <span class="tlabel">Plein non complet (réservoir non rempli)</span>
+        <label class="switch"><input type="checkbox" id="qNotFull"><span class="slider"></span></label>
+      </div>
+      <button class="btn blue" id="qAdd" style="margin-top:12px;">➕ Enregistrer ce plein</button>
+      <div class="hint">Date/heure par défaut : maintenant. Pré-rempli avec le prix de ton dernier plein.</div>
+    </div>
+    <div id="consoChartBox" style="display:none; margin-top:12px; background:#0f172a; border-radius:12px; padding:10px;">
+      <div id="consoChart"></div>
+      <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
+    </div>
+    <div id="history"></div>
+    <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
+  </div>
+</div>
+<button class="home-btn" data-acc="pVeh">🚗 Mon véhicule <span class="sub">masse, courbe, coûts</span></button>
+<div class="panel" id="pVeh">
+  <div class="card">
+    <h1>🚗 Mon véhicule</h1>
+    <h2>⚖️ Masse</h2>
+    <div class="row">
+      <div>
+        <label for="massVeh">Véhicule à vide</label>
+        <div class="unit"><input id="massVeh" type="number" inputmode="decimal" step="50" min="200" value="1200"><span>kg</span></div>
+      </div>
+    </div>
+    <h2>🏎️ Aérodynamique</h2>
+    <label for="maxSpeed">Je roule au maximum à</label>
+    <div class="unit"><input id="maxSpeed" type="number" inputmode="decimal" step="10" min="30" value="130"><span>km/h</span></div>
+    <label for="cdA">Surface frontale aéro (CdA)</label>
+    <div class="unit"><input id="cdA" type="number" inputmode="decimal" step="0.05" min="0.2" value="0.65"><span>m²</span></div>
+    <div class="hint">CdA ≈ 0,6–0,7 pour une berline, 0,8–1,0 pour un SUV. Utilisé pour l'effet du vent.</div>
+
+    <h2>🚗 Courbe du véhicule</h2>
+    <label for="curveSelect">Courbe utilisée</label>
+    <select id="curveSelect"></select>
+    <label for="curveName">Nom (pour enregistrer une courbe perso)</label>
+    <input id="curveName" type="text" placeholder="Ex. Ma Clio 1.2">
+    <button class="btn blue" id="saveCurveAs">💾 Enregistrer la courbe sous ce nom</button>
+    <button class="btn gray" id="delCurve" style="display:none;">🗑️ Supprimer cette courbe perso</button>
+
+    <h2>📈 Points vitesse → consommation</h2>
+    <div id="curveTable"></div>
+    <button class="btn gray" id="addPoint">+ Ajouter un point</button>
+
+    <h2>🎯 Ajuster à ma conso réelle</h2>
+    <div class="row">
+      <div>
+        <label for="myConso">Ma consommation</label>
+        <div class="unit"><input id="myConso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,0"><span>L/100</span></div>
+      </div>
+      <div>
+        <label for="mySpeed">à la vitesse</label>
+        <div class="unit"><input id="mySpeed" type="number" inputmode="decimal" step="10" min="0" placeholder="90"><span>km/h</span></div>
+      </div>
+    </div>
+    <button class="btn gray" id="adjustCurve">🎯 Ajuster toute la courbe à ce point</button>
+    <div class="hint">Toute la courbe est mise à l'échelle pour passer par votre point. Les autres points gardent la même forme.</div>
 
     <h2>🔧 Coûts fixes du véhicule</h2>
     <div id="fixedList"></div>
@@ -402,6 +498,21 @@
       de l'amortissement. Le tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés
       d'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au
       coût de chaque trajet enregistré.</div>
+  </div>
+</div>
+<button class="home-btn" data-acc="pPref">⚙️ Préférences <span class="sub">prix, conditions, sauvegarde</span></button>
+<div class="panel" id="pPref">
+  <div class="card">
+    <h1>⚙️ Préférences</h1>
+    <div class="subtitle">Tout est mémorisé sur l'appareil</div>
+    <h2>⛽ Carburant</h2>
+    <label for="price">Prix du litre</label>
+    <div class="unit"><input id="price" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,75"><span>€/L</span></div>
+
+    <h2>🌤️ Conditions manuelles (multiplicateurs)</h2>
+    <div id="conds"></div>
+    <button class="btn gray" id="addCond">+ Ajouter une condition</button>
+    <div class="hint">Ex. « remorque » 130 %. Multiplicateurs appliqués aux modes Itinéraire et Temps réel.</div>
 
     <h2>💾 Sauvegarde des données</h2>
     <div class="row">
@@ -411,59 +522,11 @@
     </div>
     <div class="hint">Exporte tout (historique, destinations, réglages, courbes) dans un fichier
       JSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil.</div>
-
-    <h2>⚖️ Masse</h2>
-    <div class="row">
-      <div>
-        <label for="massVeh">Véhicule à vide</label>
-        <div class="unit"><input id="massVeh" type="number" inputmode="decimal" step="50" min="200" value="1200"><span>kg</span></div>
-      </div>
-      <div>
-        <label for="massLoad">Poids transporté</label>
-        <div class="unit"><input id="massLoad" type="number" inputmode="decimal" step="10" min="0" value="0"><span>kg</span></div>
-      </div>
-    </div>
-    <div class="meta" id="massTotal"></div>
-    <div class="hint">La masse totale agit sur l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.</div>
-
-    <h2>🏎️ Aérodynamique</h2>
-    <label for="maxSpeed">Je roule au maximum à</label>
-    <div class="unit"><input id="maxSpeed" type="number" inputmode="decimal" step="10" min="30" value="130"><span>km/h</span></div>
-    <label for="cdA">Surface frontale aéro (CdA)</label>
-    <div class="unit"><input id="cdA" type="number" inputmode="decimal" step="0.05" min="0.2" value="0.65"><span>m²</span></div>
-    <div class="hint">CdA ≈ 0,6–0,7 pour une berline, 0,8–1,0 pour un SUV. Utilisé pour l'effet du vent.</div>
-
-    <h2>🚗 Courbe du véhicule</h2>
-    <label for="curveSelect">Courbe utilisée</label>
-    <select id="curveSelect"></select>
-    <label for="curveName">Nom (pour enregistrer une courbe perso)</label>
-    <input id="curveName" type="text" placeholder="Ex. Ma Clio 1.2">
-    <button class="btn blue" id="saveCurveAs">💾 Enregistrer la courbe sous ce nom</button>
-    <button class="btn gray" id="delCurve" style="display:none;">🗑️ Supprimer cette courbe perso</button>
-
-    <h2>📈 Points vitesse → consommation</h2>
-    <div id="curveTable"></div>
-    <button class="btn gray" id="addPoint">+ Ajouter un point</button>
-
-    <h2>🎯 Ajuster à ma conso réelle</h2>
-    <div class="row">
-      <div>
-        <label for="myConso">Ma consommation</label>
-        <div class="unit"><input id="myConso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,0"><span>L/100</span></div>
-      </div>
-      <div>
-        <label for="mySpeed">à la vitesse</label>
-        <div class="unit"><input id="mySpeed" type="number" inputmode="decimal" step="10" min="0" placeholder="90"><span>km/h</span></div>
-      </div>
-    </div>
-    <button class="btn gray" id="adjustCurve">🎯 Ajuster toute la courbe à ce point</button>
-    <div class="hint">Toute la courbe est mise à l'échelle pour passer par votre point. Les autres points gardent la même forme.</div>
-
-    <h2>🌤️ Conditions manuelles (multiplicateurs)</h2>
-    <div id="conds"></div>
-    <button class="btn gray" id="addCond">+ Ajouter une condition</button>
-    <div class="hint">Ex. « remorque » 130 %. Multiplicateurs appliqués aux modes Itinéraire et Temps réel.</div>
-
+  </div>
+</div>
+<button class="home-btn" data-acc="pAide">ℹ️ Aide &amp; formules <span class="sub">modèle physique</span></button>
+<div class="panel" id="pAide">
+  <div class="card">
     <details class="info">
       <summary>ℹ️ Les formules utilisées</summary>
       <b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).
@@ -474,48 +537,6 @@
       <br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;
       un point étalonné remplace toute estimation à cette vitesse.
     </details>
-  </div>
-</div>
-
-<!-- ===================== HISTORIQUE ===================== -->
-<div class="panel" id="p3">
-  <div class="card">
-    <h1>🕘 Historique</h1>
-    <button class="btn blue" id="quickPlein" style="margin-top:0;">⛽ Ajouter un plein</button>
-    <div id="qForm" style="display:none; margin-top:12px; background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px;">
-      <div class="row">
-        <div>
-          <label for="qLitres">Litres remis</label>
-          <div class="unit"><input id="qLitres" type="number" inputmode="decimal" step="0.1" min="0" placeholder="40,2"><span>L</span></div>
-        </div>
-        <div>
-          <label for="qPrice">Prix</label>
-          <div class="unit"><input id="qPrice" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,782"><span>€/L</span></div>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="qOdo">Km au compteur</label>
-          <div class="unit"><input id="qOdo" type="number" inputmode="decimal" step="100" min="0" placeholder="95000"><span>km</span></div>
-        </div>
-        <div>
-          <label for="qDate">Date</label>
-          <input id="qDate" type="date">
-        </div>
-      </div>
-      <div class="toggle">
-        <span class="tlabel">Plein non complet (réservoir non rempli)</span>
-        <label class="switch"><input type="checkbox" id="qNotFull"><span class="slider"></span></label>
-      </div>
-      <button class="btn blue" id="qAdd" style="margin-top:12px;">➕ Enregistrer ce plein</button>
-      <div class="hint">Date/heure par défaut : maintenant. Pré-rempli avec le prix de ton dernier plein.</div>
-    </div>
-    <div id="consoChartBox" style="display:none; margin-top:12px; background:#0f172a; border-radius:12px; padding:10px;">
-      <div id="consoChart"></div>
-      <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
-    </div>
-    <div id="history"></div>
-    <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
   </div>
 </div>
 
@@ -571,13 +592,73 @@ function wireToll(inputId, metaId) {
   upd();
 }
 
-/* ---------- Onglets ---------- */
-document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
-  t.classList.add("active");
-  el(t.dataset.tab).classList.add("active");
+/* ---------- Accordéon (accueil) ---------- */
+document.querySelectorAll(".home-btn").forEach(b => b.addEventListener("click", () => {
+  const target = el(b.dataset.acc);
+  const isOpen = target.classList.contains("open");
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("open"));
+  document.querySelectorAll(".home-btn").forEach(x => x.classList.remove("open"));
+  if (!isOpen) { target.classList.add("open"); b.classList.add("open"); }
 }));
+
+/* ---------- Sous-modes du Manuel : distance / adresse ---------- */
+el("mDistBtn").addEventListener("click", () => {
+  el("manualDist").style.display = "block";
+  el("manualRoute").style.display = "none";
+  el("mDistBtn").classList.add("active");
+  el("mRouteBtn").classList.remove("active");
+});
+el("mRouteBtn").addEventListener("click", () => {
+  el("manualDist").style.display = "none";
+  el("manualRoute").style.display = "block";
+  el("mRouteBtn").classList.add("active");
+  el("mDistBtn").classList.remove("active");
+});
+
+/* ---------- Préréglages de poids transporté ---------- */
+let loads = [];
+try { loads = JSON.parse(store.get("trajet_loads") || "[]") || []; } catch (e) { loads = []; }
+let loadEdit = false;
+const saveLoads = () => store.set("trajet_loads", JSON.stringify(loads));
+function renderLoads() {
+  const cur = num(el("massLoad").value) || 0;
+  let html = loads.map(l =>
+    '<span class="load-chip' + (cur > 0 && Math.abs(num(l.kg) - cur) < 0.5 ? " sel" : "") +
+    '" data-load="' + l.id + '">' + l.name + " · " + num(l.kg) + " kg" +
+    (loadEdit ? ' <span class="x" data-ldel="' + l.id + '">✕</span>' : "") + '</span>').join("");
+  html += '<span class="load-chip" id="loadAdd">＋ Préréglage</span>';
+  if (loads.length) html += '<span class="load-chip" id="loadEditBtn">' +
+    (loadEdit ? "✔️ Finir" : "✏️ Modifier") + '</span>';
+  el("loadChips").innerHTML = html;
+}
+el("loadChips").addEventListener("click", (e) => {
+  if (e.target.dataset.ldel !== undefined) {
+    loads = loads.filter(l => String(l.id) !== String(e.target.dataset.ldel));
+    saveLoads(); renderLoads(); return;
+  }
+  const editBtn = e.target.closest ? e.target.closest("#loadEditBtn") : null;
+  if (editBtn) { loadEdit = !loadEdit; renderLoads(); return; }
+  const addBtn = e.target.closest ? e.target.closest("#loadAdd") : null;
+  if (addBtn) {
+    const name = prompt("Nom du préréglage (ex. 2 adultes + 1 enfant)");
+    if (!name || !name.trim()) return;
+    const kg = num(prompt("Poids total transporté en kg ?", "75"));
+    if (!(kg > 0)) { toast("Poids invalide"); return; }
+    loads.push({ id: Date.now(), name: name.trim(), kg: kg });
+    saveLoads(); renderLoads(); return;
+  }
+  const chip = e.target.closest ? e.target.closest("[data-load]") : null;
+  if (chip) {
+    const l = loads.find(x => String(x.id) === String(chip.dataset.load));
+    if (l) {
+      el("massLoad").value = l.kg;
+      el("massLoad").dispatchEvent(new Event("input"));
+      renderLoads();
+      toast(l.name + " : " + l.kg + " kg ✔");
+    }
+  }
+});
+el("massLoad").addEventListener("input", renderLoads);
 
 /* ---------- Réglages : prix, masse, aéro ---------- */
 el("price").value = store.get("trajet_price") || "";
@@ -1907,6 +1988,7 @@ renderHistory();
 reconcile();
 renderDests();
 renderFixed();
+renderLoads();
 if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
 updMassTotal();
 </script>
