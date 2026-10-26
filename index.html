@@ -1888,6 +1888,8 @@ el("fixedList").addEventListener("click", (e) => {
 el("odoList").addEventListener("click", (e) => {
   const id = e.target.dataset.odel;
   if (id === undefined) return;
+  const o = odometers.find(x => String(x.id) === String(id));
+  if (!confirm("Supprimer le relevé du " + (o ? new Date(o.date).toLocaleDateString("fr-FR") : "?") + " ?")) return;
   odometers = odometers.filter(o => String(o.id) !== String(id));
   saveOdo(); renderFixed();
 });
