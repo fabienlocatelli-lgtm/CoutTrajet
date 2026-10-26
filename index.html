@@ -166,7 +166,6 @@
     <div class="result">
       <div class="amount" id="amount">—</div>
       <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
-      <div class="detail" id="detailNoFixed" style="display:none;"></div>
     </div>
     <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage + coûts fixes au km</div>
     <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
@@ -250,7 +249,6 @@
     <div class="result" id="result2" style="display:none;">
       <div class="amount" id="amount2">—</div>
       <div class="detail" id="detail2"></div>
-      <div class="detail" id="detailNoFixed2" style="display:none;"></div>
     </div>
 
     <div id="chartBox" style="display:none;">
@@ -901,7 +899,6 @@ function compute() {
   if (!(price > 0) || !(conso > 0)) {
     el("amount").textContent = "—";
     el("detail").textContent = "Renseignez conso et prix (onglet Réglages)";
-    el("detailNoFixed").style.display = "none";
     return;
   }
   let totalDist = 0, valid = false;
@@ -918,7 +915,6 @@ function compute() {
   if (!valid) {
     el("amount").textContent = "—";
     el("detail").textContent = "Renseignez au moins une distance";
-    el("detailNoFixed").style.display = "none";
     return;
   }
   const litres = totalDist / 100 * conso;
@@ -932,10 +928,6 @@ function compute() {
   if (toll > 0) detail += " · péage " + fmt(toll);
   if (fixed > 0) detail += " · coûts fixes " + fmt(fixed);
   el("detail").textContent = detail;
-  if (fixed > 0) {
-    el("detailNoFixed").style.display = "block";
-    el("detailNoFixed").textContent = "Sans coûts fixes : " + fmt(fuel + toll);
-  } else el("detailNoFixed").style.display = "none";
 }
 ["conso", "hasToll"].forEach(id => {
   el(id).addEventListener("input", compute);
@@ -1288,10 +1280,6 @@ el("calcRoute").addEventListener("click", async () => {
       " · vent " + (Lwind >= 0 ? "+" : "") + fmt1(Lwind * distMult) + " L" +
       " · pluie +" + fmt1(LrainExtra * distMult) + " L";
     el("detail2").textContent = detail;
-    if (fixedR > 0) {
-      el("detailNoFixed2").style.display = "block";
-      el("detailNoFixed2").textContent = "Sans coûts fixes : " + fmt(fuel + toll);
-    } else el("detailNoFixed2").style.display = "none";
 
     buildChart(profile, oneWayKm, "chart");
     el("chartBox").style.display = "block";
