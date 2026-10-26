@@ -3,49 +3,49 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#0f172a" />
+<meta name="theme-color" content="#0b0f17" />
 <title>Coût de trajet essence</title>
 <style>
-  :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+  :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: #0b0f17; color: #e2e8f0; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 0 0 40px; }
+  body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 0 0 32px; }
   .wrap { width: 100%; max-width: 480px; }
-  .card { background: #1e293b; border-radius: 16px; padding: 20px; margin: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
-  h1 { margin: 0 0 4px; font-size: 1.25rem; text-align: center; }
-  h2 { margin: 18px 0 10px; font-size: 1rem; }
-  .subtitle { text-align: center; color: #94a3b8; font-size: .8rem; margin-bottom: 14px; }
-  label { display: block; font-size: .85rem; color: #94a3b8; margin: 12px 0 6px; }
+  .card { background: #141a26; border: 1px solid #232c3d; border-radius: 12px; padding: 16px; margin: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  h1 { margin: 0 0 4px; font-size: 1.15rem; text-align: center; }
+  h2 { margin: 14px 0 8px; font-size: .95rem; }
+  .subtitle { text-align: center; color: #94a3b8; font-size: .78rem; margin-bottom: 12px; }
+  label { display: block; font-size: .82rem; color: #94a3b8; margin: 9px 0 4px; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; min-width: 0; }
   input[type="number"], input[type="text"], input[type="date"], input[type="time"], select {
-    width: 100%; padding: 12px; font-size: 1rem; border-radius: 12px;
-    border: 1px solid #334155; background: #0f172a; color: #fff; outline: none;
+    width: 100%; padding: 10px; font-size: .95rem; border-radius: 10px;
+    border: 1px solid #232c3d; background: #0b0f17; color: #fff; outline: none;
     color-scheme: dark;
   }
   input:focus, select:focus { border-color: #38bdf8; }
   .unit { position: relative; }
-  .unit span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .8rem; pointer-events: none; }
-  .unit input { padding-right: 54px; }
-  .home-btn { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 8px 16px;
-    padding: 15px 16px; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 14px;
-    font-size: .95rem; font-weight: 600; cursor: pointer; text-align: left; }
-  .home-btn .sub { font-size: .72rem; color: #94a3b8; font-weight: 400; margin-left: auto; }
+  .unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .78rem; pointer-events: none; }
+  .unit input { padding-right: 50px; }
+  .home-btn { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 6px 12px;
+    padding: 11px 14px; background: #141a26; color: #e2e8f0; border: 1px solid #232c3d; border-radius: 10px;
+    font-size: .92rem; font-weight: 600; cursor: pointer; text-align: left; }
+  .home-btn .sub { font-size: .7rem; color: #94a3b8; font-weight: 400; margin-left: auto; }
   .home-btn.open { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
   .home-btn.open .sub { color: #0f172a; }
   .panel { display: none; }
   .panel.open { display: block; }
-  .seg { display: flex; gap: 6px; margin-bottom: 14px; }
-  .seg-btn { flex: 1; padding: 10px 4px; background: #0f172a; color: #94a3b8; border: 1px solid #334155;
-    border-radius: 12px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
+  .seg-btn { flex: 1; padding: 9px 4px; background: #0b0f17; color: #94a3b8; border: 1px solid #232c3d;
+    border-radius: 10px; font-size: .82rem; font-weight: 600; cursor: pointer; }
   .seg-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
-  .load-chip { display: inline-flex; align-items: center; margin: 4px 4px 0 0; padding: 8px 12px;
-    background: #0f172a; border: 1px solid #334155; border-radius: 999px; color: #e2e8f0;
-    font-size: .8rem; cursor: pointer; }
+  .load-chip { display: inline-flex; align-items: center; margin: 3px 3px 0 0; padding: 7px 11px;
+    background: #0b0f17; border: 1px solid #232c3d; border-radius: 999px; color: #e2e8f0;
+    font-size: .78rem; cursor: pointer; }
   .load-chip.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 700; }
   .load-chip .x { color: #f87171; font-weight: 700; margin-left: 6px; }
   .toggle { display: flex; align-items: center; justify-content: space-between;
-    background: #0f172a; border-radius: 12px; padding: 12px 14px; border: 1px solid #334155; margin-top: 10px; }
-  .toggle .tlabel { color: #e2e8f0; font-size: .9rem; }
+    background: #0b0f17; border-radius: 10px; padding: 10px 12px; border: 1px solid #232c3d; margin-top: 8px; }
+  .toggle .tlabel { color: #e2e8f0; font-size: .87rem; }
   .switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; cursor: pointer; }
   .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
   .slider { position: absolute; inset: 0; background: #334155; border-radius: 28px; transition: .2s; }
@@ -54,10 +54,10 @@
   .switch input:checked + .slider::before { transform: translateX(24px); }
   .tollField { display: none; }
   .tollField.show { display: block; }
-  .drawer { display: none; margin-top: 10px; background: #0f172a; border: 1px solid #334155;
-    border-radius: 12px; padding: 12px; }
+  .drawer { display: none; margin-top: 8px; background: #0b0f17; border: 1px solid #232c3d;
+    border-radius: 10px; padding: 10px; }
   .drawer.show { display: block; }
-  .segment { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .segment { background: #0b0f17; border: 1px solid #232c3d; border-radius: 10px; padding: 10px; margin-top: 8px; }
   .segment .head { display: flex; align-items: center; gap: 8px; }
   .segment .head input[type="text"] { flex: 1; min-width: 0; }
   .del { background: none; border: none; color: #f87171; font-size: 1.2rem; padding: 4px 10px; cursor: pointer; }
@@ -65,23 +65,23 @@
   table { width: 100%; border-collapse: collapse; margin-top: 6px; }
   td, th { padding: 4px; text-align: center; }
   td input { padding: 8px !important; font-size: .95rem !important; }
-  .btn { margin-top: 12px; width: 100%; padding: 14px; border-radius: 12px; border: none;
-    font-size: .95rem; font-weight: 600; cursor: pointer; }
-  .btn.gray { background: #334155; color: #e2e8f0; }
+  .btn { margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px; border: none;
+    font-size: .92rem; font-weight: 600; cursor: pointer; }
+  .btn.gray { background: #232c3d; color: #e2e8f0; }
   .btn.blue { background: #38bdf8; color: #0f172a; }
   .btn:disabled { opacity: .5; }
   .btn:active { opacity: .8; }
-  .result { margin-top: 18px; background: linear-gradient(135deg, #0ea5e9, #0f766e);
-    border-radius: 16px; padding: 18px; text-align: center; }
-  .result .amount { font-size: 2.1rem; font-weight: 800; color: #fff; }
-  .result .detail { font-size: .82rem; color: #d1fae5; margin-top: 6px; min-height: 1.2em; line-height: 1.6; }
-  .formula { font-size: .75rem; color: #94a3b8; text-align: center; margin-top: 8px; line-height: 1.6; }
-  .hint { font-size: .72rem; color: #64748b; text-align: center; margin-top: 10px; line-height: 1.5; }
-  details.info { margin-top: 12px; background: #0f172a; border: 1px solid #334155;
-    border-radius: 12px; padding: 10px 12px; font-size: .78rem; color: #94a3b8; line-height: 1.6; }
-  details.info summary { cursor: pointer; color: #38bdf8; font-size: .82rem; }
-  .hist-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px;
-    margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .result { margin-top: 14px; background: linear-gradient(135deg, #0ea5e9, #0f766e);
+    border-radius: 12px; padding: 14px; text-align: center; }
+  .result .amount { font-size: 1.9rem; font-weight: 800; color: #fff; }
+  .result .detail { font-size: .8rem; color: #d1fae5; margin-top: 5px; min-height: 1.2em; line-height: 1.55; }
+  .formula { font-size: .72rem; color: #94a3b8; text-align: center; margin-top: 6px; line-height: 1.55; }
+  .hint { font-size: .7rem; color: #64748b; text-align: center; margin-top: 8px; line-height: 1.45; }
+  details.info { margin-top: 10px; background: #0b0f17; border: 1px solid #232c3d;
+    border-radius: 10px; padding: 8px 10px; font-size: .76rem; color: #94a3b8; line-height: 1.55; }
+  details.info summary { cursor: pointer; color: #38bdf8; font-size: .8rem; }
+  .hist-item { background: #0b0f17; border: 1px solid #232c3d; border-radius: 10px; padding: 10px 12px;
+    margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .hist-item .left { flex: 1; min-width: 0; }
   .hist-item .date { font-size: .7rem; color: #64748b; }
   .hist-item .mode { font-size: .68rem; color: #38bdf8; }
@@ -91,11 +91,11 @@
   .hist-item.plein { border-color: #4ade80; background: #052e16; }
   .hist-item .badge { font-size: .65rem; color: #f59e0b; }
   .empty { color: #64748b; font-size: .85rem; text-align: center; margin-top: 10px; }
-  #chartBox { margin-top: 14px; background: #0f172a; border-radius: 12px; padding: 10px; }
+  #chartBox { margin-top: 12px; background: #0b0f17; border-radius: 10px; padding: 8px; }
   #chartBox svg { width: 100%; height: auto; }
   .legend { display: flex; gap: 10px; justify-content: center; font-size: .68rem; color: #94a3b8; margin-top: 6px; flex-wrap: wrap; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-  .status { font-size: .78rem; color: #94a3b8; margin-top: 10px; min-height: 1.2em; line-height: 1.5; white-space: pre-line; }
+  .status { font-size: .76rem; color: #94a3b8; margin-top: 8px; min-height: 1.2em; line-height: 1.45; white-space: pre-line; }
   .status.err { color: #f87171; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: #0ea5e9; color: #fff; padding: 12px 20px; border-radius: 12px;
@@ -103,13 +103,13 @@
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none;
     justify-content: center; align-items: center; z-index: 20; padding: 16px; }
   .modal-bg.show { display: flex; }
-  .modal { background: #1e293b; border-radius: 16px; padding: 20px;
+  .modal { background: #141a26; border: 1px solid #232c3d; border-radius: 12px; padding: 16px;
     width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
-  .modal h2 { margin: 0 0 6px; font-size: 1.05rem; }
-  .modal .full { font-size: .85rem; color: #e2e8f0; background: #0f172a;
-    border-radius: 12px; padding: 12px; margin: 10px 0; line-height: 1.5; word-break: break-word; white-space: pre-line; }
-  .modal .stats { font-size: .85rem; color: #94a3b8; }
-  .modal .chart2 { margin-top: 12px; background: #0f172a; border-radius: 12px; padding: 10px; }
+  .modal h2 { margin: 0 0 6px; font-size: 1rem; }
+  .modal .full { font-size: .82rem; color: #e2e8f0; background: #0b0f17;
+    border-radius: 10px; padding: 10px; margin: 8px 0; line-height: 1.5; word-break: break-word; white-space: pre-line; }
+  .modal .stats { font-size: .82rem; color: #94a3b8; }
+  .modal .chart2 { margin-top: 10px; background: #0b0f17; border-radius: 10px; padding: 8px; }
   .modal .chart2 svg { width: 100%; height: auto; }
 </style>
 </head>
@@ -132,7 +132,10 @@
     </div>
   </div>
   <div class="meta" id="massTotal"></div>
-  <div class="hint">Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.</div>
+  <details class="info">
+    <summary>ℹ️ Effet du poids</summary>
+    Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.
+  </details>
 </div>
 
 <button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">coût de trajet · km ou adresse</span></button>
@@ -216,8 +219,11 @@
             <input id="wxTime" type="time" value="08:00">
           </div>
         </div>
-        <div class="hint">Sans date : météo actuelle. Date passée : archive Open-Meteo.
-          Date future ≤ 16 jours : prévisions. Au-delà : impossible.</div>
+        <details class="info" style="margin-top:8px;">
+          <summary>ℹ️ Quelques dates fonctionnent ?</summary>
+          Sans date : météo actuelle. Date passée : archive Open-Meteo.
+          Date future ≤ 16 jours : prévisions. Au-delà : impossible.
+        </details>
       </div>
       <div id="wxManualOpts">
         <label for="wxWind">Vent (simplifié)</label>
@@ -297,8 +303,11 @@
       <span class="tlabel">🌤️ Météo réelle (mise à jour tous les 10 km)</span>
       <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
     </div>
-    <div class="hint">Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé
-      (altitude relevée tous les 2 km) pour corriger la consommation instantanée.</div>
+    <details class="info" style="margin-top:8px;">
+      <summary>ℹ️ Météo en temps réel</summary>
+      Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé
+      (altitude relevée tous les 2 km) pour corriger la consommation instantanée.
+    </details>
 
     <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
     <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
@@ -352,9 +361,12 @@
     </div>
     <button class="btn blue" id="addPlein">➕ Ajouter ce plein</button>
     <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
-    <div class="hint">Entre deux pleins complets, les trajets cochés de l'historique sont
-      recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.</div>
-    <div id="consoChartBox" style="display:none; margin-top:12px; background:#0f172a; border-radius:12px; padding:10px;">
+    <details class="info" style="margin-top:8px;">
+      <summary>ℹ️ Réconciliation avec l'historique</summary>
+      Entre deux pleins complets, les trajets cochés de l'historique sont
+      recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.
+    </details>
+    <div id="consoChartBox" style="display:none; margin-top:12px; background:#0b0f17; border-radius:10px; padding:8px;">
       <div id="consoChart"></div>
       <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
     </div>
@@ -462,11 +474,14 @@
     <label for="fdKmYear" style="margin-top:10px;">Ou km/an manuels (utilisé s'il n'y a pas 2 relevés)</label>
     <div class="unit"><input id="fdKmYear" type="number" inputmode="decimal" step="500" min="0" placeholder="12000"><span>km/an</span></div>
     <div class="meta" id="fixedStatus" style="text-align:left;"></div>
-    <div class="hint">Dépenses annuelles : comptées chaque année. Dépenses uniques : divisées
+    <details class="info" style="margin-top:8px;">
+      <summary>ℹ️ Comment sont calculés les coûts fixes</summary>
+      Dépenses annuelles : comptées chaque année. Dépenses uniques : divisées
       par le nombre d'années de lissage et comptées seulement entre leur date et la fin
       de l'amortissement. Le tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés
       d'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au
-      coût de chaque trajet enregistré.</div>
+      coût de chaque trajet enregistré.
+    </details>
   </div>
 </div>
 <button class="home-btn" data-acc="pPref">⚙️ Préférences <span class="sub">prix, conditions, sauvegarde</span></button>
@@ -488,8 +503,11 @@
       <button class="btn blue" id="impData">⬆️ Importer</button>
       <input id="impFile" type="file" accept="application/json,.json" style="display:none">
     </div>
-    <div class="hint">Exporte tout (historique, destinations, réglages, courbes) dans un fichier
-      JSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil.</div>
+    <details class="info" style="margin-top:8px;">
+      <summary>ℹ️ Export / import</summary>
+      Exporte tout (historique, destinations, réglages, courbes) dans un fichier
+      JSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil.
+    </details>
   </div>
 </div>
 <button class="home-btn" data-acc="pAide">ℹ️ Aide &amp; formules <span class="sub">modèle physique</span></button>
