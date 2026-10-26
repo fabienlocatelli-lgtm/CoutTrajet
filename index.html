@@ -119,17 +119,20 @@
 <!-- Carte poids transporté (toujours visible) -->
 <div class="card" id="loadCard">
   <h1>🧳 Poids transporté</h1>
-  <div class="subtitle">À régler avant chaque trajet</div>
+  <div class="subtitle">Touche un bouton pour le mettre dans le véhicule</div>
   <div id="loadChips"></div>
+  <div id="loadComp" class="meta" style="text-align:left;min-height:1em;"></div>
   <div class="row">
     <div>
-      <label for="massLoad">Poids total transporté</label>
+      <label for="massLoad">Total transporté</label>
       <div class="unit"><input id="massLoad" type="number" inputmode="decimal" step="10" min="0" value="0"><span>kg</span></div>
+    </div>
+    <div style="align-self:end;">
+      <button class="btn gray" id="loadReset" style="margin-top:0;">🧹 Vider</button>
     </div>
   </div>
   <div class="meta" id="massTotal"></div>
-  <div class="hint">Utilisé pour l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.
-    Crée tes préréglages : 1 personne, 2 adultes 1 enfant, bagage 25 kg…</div>
+  <div class="hint">Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.</div>
 </div>
 
 <button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">km ou adresse</span></button>
@@ -141,8 +144,6 @@
       <button class="seg-btn" id="mRouteBtn">🗺️ Adresse</button>
     </div>
     <div id="manualDist">
-    <div class="subtitle">Niveau 1 — saisie manuelle</div>
-
     <label for="conso">Conso du véhicule (L/100km)</label>
     <div class="unit"><input id="conso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,5"><span>L/100</span></div>
 
@@ -173,10 +174,7 @@
       Ce mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel.
     </details>
     </div>
-  </div>
-  <div id="manualRoute" style="display:none;">
-  <div class="card">
-    <h1>🗺️ Itinéraire</h1>
+    <div id="manualRoute" style="display:none;">
     <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu)</div>
 
     <label for="from">Lieu de départ</label>
@@ -269,7 +267,7 @@
       <br>Le résultat détaille la part de chaque effet.
     </details>
     <button class="btn blue" id="saveBtn2" style="display:none;">💾 Enregistrer ce calcul</button>
-  </div>
+    </div>
   </div>
 </div>
 <button class="home-btn" data-acc="p5">📍 Temps réel <span class="sub">GPS</span></button>
@@ -318,10 +316,10 @@
     </details>
   </div>
 </div>
-<button class="home-btn" data-acc="p3">⛽ Historique &amp; pleins <span class="sub">trajets, conso réelle</span></button>
-<div class="panel" id="p3">
+<button class="home-btn" data-acc="pPlein">⛽ Pleins <span class="sub">saisie, conso réelle</span></button>
+<div class="panel" id="pPlein">
   <div class="card">
-    <h2>⛽ Pleins d'essence</h2>
+    <h1>⛽ Pleins d'essence</h1>
     <div class="row">
       <div>
         <label for="flPrice">Prix du litre</label>
@@ -359,41 +357,17 @@
     <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
     <div class="hint">Entre deux pleins complets, les trajets cochés de l'historique sont
       recalibrés sur les litres réellement consommés, au prix au litre du plein précédent.</div>
-
-    <h1>🕘 Historique</h1>
-    <button class="btn blue" id="quickPlein" style="margin-top:0;">⛽ Ajouter un plein</button>
-    <div id="qForm" style="display:none; margin-top:12px; background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px;">
-      <div class="row">
-        <div>
-          <label for="qLitres">Litres remis</label>
-          <div class="unit"><input id="qLitres" type="number" inputmode="decimal" step="0.1" min="0" placeholder="40,2"><span>L</span></div>
-        </div>
-        <div>
-          <label for="qPrice">Prix</label>
-          <div class="unit"><input id="qPrice" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,782"><span>€/L</span></div>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="qOdo">Km au compteur</label>
-          <div class="unit"><input id="qOdo" type="number" inputmode="decimal" step="100" min="0" placeholder="95000"><span>km</span></div>
-        </div>
-        <div>
-          <label for="qDate">Date</label>
-          <input id="qDate" type="date">
-        </div>
-      </div>
-      <div class="toggle">
-        <span class="tlabel">Plein non complet (réservoir non rempli)</span>
-        <label class="switch"><input type="checkbox" id="qNotFull"><span class="slider"></span></label>
-      </div>
-      <button class="btn blue" id="qAdd" style="margin-top:12px;">➕ Enregistrer ce plein</button>
-      <div class="hint">Date/heure par défaut : maintenant. Pré-rempli avec le prix de ton dernier plein.</div>
-    </div>
     <div id="consoChartBox" style="display:none; margin-top:12px; background:#0f172a; border-radius:12px; padding:10px;">
       <div id="consoChart"></div>
       <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
     </div>
+  </div>
+</div>
+
+<button class="home-btn" data-acc="p3">🕘 Historique <span class="sub">trajets enregistrés</span></button>
+<div class="panel" id="p3">
+  <div class="card">
+    <h1>🕘 Historique</h1>
     <div id="history"></div>
     <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
   </div>
@@ -615,48 +589,52 @@ el("mRouteBtn").addEventListener("click", () => {
   el("mDistBtn").classList.remove("active");
 });
 
-/* ---------- Préréglages de poids transporté ---------- */
-let loads = [];
-try { loads = JSON.parse(store.get("trajet_loads") || "[]") || []; } catch (e) { loads = []; }
-let loadEdit = false;
-const saveLoads = () => store.set("trajet_loads", JSON.stringify(loads));
+/* ---------- Poids transporté : boutons d'ajout ---------- */
+const LOAD_CATALOG = [
+  { key: "adulte", label: "🧑 Adulte", kg: 75, max: 7 },
+  { key: "enfant", label: "🧒 Enfant", kg: 35, max: 6 },
+  { key: "bebe", label: "👶 Bébé + siège", kg: 13, max: 6 },
+  { key: "valise", label: "🧳 Valise", kg: 25, max: 8 },
+  { key: "sac", label: "🎒 Sac", kg: 10, max: 8 },
+  { key: "autre", label: "📦 Autre (50 kg)", kg: 50, max: 8 }
+];
+let loadState = {};
+try { loadState = JSON.parse(store.get("trajet_loadState") || "{}") || {}; } catch (e) { loadState = {}; }
+const saveLoadState = () => store.set("trajet_loadState", JSON.stringify(loadState));
+function loadItems() {
+  return LOAD_CATALOG.filter(it => (loadState[it.key] || 0) > 0);
+}
+function loadTotal() {
+  return loadItems().reduce((s, it) => s + it.kg * loadState[it.key], 0);
+}
 function renderLoads() {
-  const cur = num(el("massLoad").value) || 0;
-  let html = loads.map(l =>
-    '<span class="load-chip' + (cur > 0 && Math.abs(num(l.kg) - cur) < 0.5 ? " sel" : "") +
-    '" data-load="' + l.id + '">' + l.name + " · " + num(l.kg) + " kg" +
-    (loadEdit ? ' <span class="x" data-ldel="' + l.id + '">✕</span>' : "") + '</span>').join("");
-  html += '<span class="load-chip" id="loadAdd">＋ Préréglage</span>';
-  if (loads.length) html += '<span class="load-chip" id="loadEditBtn">' +
-    (loadEdit ? "✔️ Finir" : "✏️ Modifier") + '</span>';
-  el("loadChips").innerHTML = html;
+  el("loadChips").innerHTML = LOAD_CATALOG.map(it => {
+    const n = loadState[it.key] || 0;
+    return '<span class="load-chip' + (n > 0 ? " sel" : "") + '" data-ladd="' + it.key + '">' +
+      it.label + " " + it.kg + " kg" + (n > 0 ? " ×" + n : "") + "</span>";
+  }).join("");
+  const parts = loadItems().map(it => loadState[it.key] + " × " + it.label);
+  el("loadComp").textContent = parts.length ? "Dans le véhicule : " + parts.join(" · ") : "";
+}
+function applyLoad() {
+  el("massLoad").value = loadTotal();
+  el("massLoad").dispatchEvent(new Event("input"));
+  renderLoads();
 }
 el("loadChips").addEventListener("click", (e) => {
-  if (e.target.dataset.ldel !== undefined) {
-    loads = loads.filter(l => String(l.id) !== String(e.target.dataset.ldel));
-    saveLoads(); renderLoads(); return;
-  }
-  const editBtn = e.target.closest ? e.target.closest("#loadEditBtn") : null;
-  if (editBtn) { loadEdit = !loadEdit; renderLoads(); return; }
-  const addBtn = e.target.closest ? e.target.closest("#loadAdd") : null;
-  if (addBtn) {
-    const name = prompt("Nom du préréglage (ex. 2 adultes + 1 enfant)");
-    if (!name || !name.trim()) return;
-    const kg = num(prompt("Poids total transporté en kg ?", "75"));
-    if (!(kg > 0)) { toast("Poids invalide"); return; }
-    loads.push({ id: Date.now(), name: name.trim(), kg: kg });
-    saveLoads(); renderLoads(); return;
-  }
-  const chip = e.target.closest ? e.target.closest("[data-load]") : null;
-  if (chip) {
-    const l = loads.find(x => String(x.id) === String(chip.dataset.load));
-    if (l) {
-      el("massLoad").value = l.kg;
-      el("massLoad").dispatchEvent(new Event("input"));
-      renderLoads();
-      toast(l.name + " : " + l.kg + " kg ✔");
-    }
-  }
+  const chip = e.target.closest ? e.target.closest("[data-ladd]") : null;
+  if (!chip) return;
+  const it = LOAD_CATALOG.find(x => x.key === chip.dataset.ladd);
+  if (!it) return;
+  const n = (loadState[it.key] || 0) + 1;
+  if (n > it.max) { toast("Maximum " + it.max + " pour « " + it.label + " »"); return; }
+  loadState[it.key] = n;
+  saveLoadState(); applyLoad();
+});
+el("loadReset").addEventListener("click", () => {
+  loadState = {};
+  saveLoadState(); applyLoad();
+  toast("Véhicule vidé");
 });
 el("massLoad").addEventListener("input", renderLoads);
 
@@ -897,10 +875,12 @@ el("addSegment").addEventListener("click", () => {
   if (inputs.length) inputs[inputs.length - 1].focus();
 });
 
+let userConsoTouched = false;
+el("conso").addEventListener("input", () => { userConsoTouched = true; });
+
 function compute() {
   const price = getPrice();
-  const conso = num(el("conso").value);
-  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
+  const conso = num(el("conso").value);  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
 
   store.set("trajet_conso", el("conso").value);
   store.set("trajet_segments", JSON.stringify(segments));
@@ -1540,6 +1520,15 @@ function reconcile() {
       new Date(last.to).toLocaleDateString("fr-FR") + ")." +
       "\nPour recalibrer la courbe : saisis-la dans « 🎯 Ajuster à ma conso réelle ».";
   }
+  const ref = consoPts.filter(p => p.km >= 200).slice(-1)[0];
+  if (ref && !userConsoTouched) {
+    const v = ref.conso.toFixed(2);
+    if (el("conso").value !== v) {
+      el("conso").value = v;
+      store.set("trajet_conso", v);
+      compute();
+    }
+  }
   el("pleinStatus").textContent = lastMsg + (consoMsg ? "\n\n" + consoMsg : "");
   renderConsoChart(consoPts);
   renderFixed();
@@ -1677,40 +1666,6 @@ el("addPlein").addEventListener("click", () => {
     (odo > 0 ? " · " + odo.toLocaleString("fr-FR") + " km" : "") +
     (el("flNotFull").checked ? " (non complet)" : ""));
   el("flOdo").value = "";
-  saveHistory();
-  reconcile();
-  renderHistory();
-  toast("Plein ajouté ✔");
-});
-
-/* Plein rapide depuis l'historique */
-el("quickPlein").addEventListener("click", () => {
-  const f = el("qForm");
-  const show = f.style.display === "none";
-  f.style.display = show ? "block" : "none";
-  if (show) {
-    const lp = history.filter(h => h.type === "Plein" && h.priceL > 0)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-    if (lp) el("qPrice").value = lp.priceL;
-    el("qDate").value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-      .toISOString().slice(0, 10);
-    el("qLitres").focus();
-  }
-});
-el("qAdd").addEventListener("click", () => {
-  const liters = num(el("qLitres").value);
-  const priceL = num(el("qPrice").value);
-  const odo = num(el("qOdo").value);
-  if (!(liters > 0) || !(priceL > 0)) { toast("Litres et prix requis"); return; }
-  const dq = el("qDate").value;
-  let date = new Date();
-  if (dq) { const d2 = new Date(dq + "T" + date.toTimeString().slice(0, 8)); if (!isNaN(d2)) date = d2; }
-  pushPlein(liters, priceL, odo, el("qNotFull").checked, date.toISOString(),
-    "Plein " + fmt1(liters) + " L à " + priceL + " €/L" +
-    (odo > 0 ? " · " + odo.toLocaleString("fr-FR") + " km" : "") +
-    (el("qNotFull").checked ? " (non complet)" : ""));
-  el("qLitres").value = ""; el("qOdo").value = ""; el("qNotFull").checked = false;
-  el("qForm").style.display = "none";
   saveHistory();
   reconcile();
   renderHistory();
@@ -1994,3 +1949,4 @@ updMassTotal();
 </script>
 </body>
 </html>
+
