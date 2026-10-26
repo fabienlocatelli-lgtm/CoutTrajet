@@ -135,10 +135,9 @@
   <div class="hint">Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km.</div>
 </div>
 
-<button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">km ou adresse</span></button>
+<button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">coût de trajet · km ou adresse</span></button>
 <div class="panel" id="p1">
   <div class="card">
-    <h1>⛽ Coût de trajet</h1>
     <div class="seg">
       <button class="seg-btn active" id="mDistBtn">📏 Distance</button>
       <button class="seg-btn" id="mRouteBtn">🗺️ Adresse</button>
@@ -165,7 +164,7 @@
       <div class="amount" id="amount">—</div>
       <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
     </div>
-    <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage</div>
+    <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage + coûts fixes au km</div>
     <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
     <details class="info">
       <summary>ℹ️ Comment ce calcul est fait</summary>
@@ -273,7 +272,6 @@
 <button class="home-btn" data-acc="p5">📍 Temps réel <span class="sub">GPS</span></button>
 <div class="panel" id="p5">
   <div class="card">
-    <h1>📊 Temps réel</h1>
     <div class="subtitle">GPS + votre courbe — localisation activée requise</div>
 
     <div class="row">
@@ -316,10 +314,9 @@
     </details>
   </div>
 </div>
-<button class="home-btn" data-acc="pPlein">⛽ Pleins <span class="sub">saisie, conso réelle</span></button>
+<button class="home-btn" data-acc="pPlein">⛽ Pleins d'essence <span class="sub">saisie, conso réelle</span></button>
 <div class="panel" id="pPlein">
   <div class="card">
-    <h1>⛽ Pleins d'essence</h1>
     <div class="row">
       <div>
         <label for="flPrice">Prix du litre</label>
@@ -367,7 +364,6 @@
 <button class="home-btn" data-acc="p3">🕘 Historique <span class="sub">trajets enregistrés</span></button>
 <div class="panel" id="p3">
   <div class="card">
-    <h1>🕘 Historique</h1>
     <div id="history"></div>
     <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
   </div>
@@ -375,7 +371,6 @@
 <button class="home-btn" data-acc="pVeh">🚗 Mon véhicule <span class="sub">masse, courbe, coûts</span></button>
 <div class="panel" id="pVeh">
   <div class="card">
-    <h1>🚗 Mon véhicule</h1>
     <h2>⚖️ Masse</h2>
     <div class="row">
       <div>
@@ -477,7 +472,6 @@
 <button class="home-btn" data-acc="pPref">⚙️ Préférences <span class="sub">prix, conditions, sauvegarde</span></button>
 <div class="panel" id="pPref">
   <div class="card">
-    <h1>⚙️ Préférences</h1>
     <div class="subtitle">Tout est mémorisé sur l'appareil</div>
     <h2>⛽ Carburant</h2>
     <label for="price">Prix du litre</label>
@@ -908,11 +902,14 @@ function compute() {
   }
   const litres = totalDist / 100 * conso;
   const fuel = litres * price;
-  const total = fuel + toll;
+  const fpk = fixedPerKm();
+  const fixed = fpk ? fpk.perKm * totalDist : 0;
+  const total = fuel + toll + fixed;
   el("amount").textContent = fmt(total);
   el("amount").dataset.val = String(total);
   let detail = fmt1(totalDist) + " km · " + fmt1(litres) + " L · carburant " + fmt(fuel);
   if (toll > 0) detail += " · péage " + fmt(toll);
+  if (fixed > 0) detail += " · coûts fixes " + fmt(fixed);
   el("detail").textContent = detail;
 }
 ["conso", "hasToll"].forEach(id => {
@@ -1236,7 +1233,9 @@ el("calcRoute").addEventListener("click", async () => {
     const tollVal = parseMoney(el("toll2").value);
     const toll = el("hasToll2").checked ? ((isNaN(tollVal) ? 0 : tollVal) * distMult) : 0;
     const fuel = totalL2 * price;
-    const total = fuel + toll;
+    const fpkR = fixedPerKm();
+    const fixedR = fpkR ? fpkR.perKm * totalKm : 0;
+    const total = fuel + toll + fixedR;
     const avgConso = totalL2 / totalKm * 100;
 
     const NB = 80;
@@ -1258,6 +1257,7 @@ el("calcRoute").addEventListener("click", async () => {
     let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + fmt1(totalL2) +
       " L · moyenne " + fmt1(avgConso) + " L/100 · carburant " + fmt(fuel);
     if (toll > 0) detail += " · péage " + fmt(toll);
+    if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
     detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
       " · pente " + (Lslope >= 0 ? "+" : "") + fmt1(Lslope * distMult) + " L" +
       " · vent " + (Lwind >= 0 ? "+" : "") + fmt1(Lwind * distMult) + " L" +
@@ -1276,7 +1276,7 @@ el("calcRoute").addEventListener("click", async () => {
       (wxMode ? " Météo " + wxMode + "." :
         (el("wxOn").checked ? " Météo simplifiée manuelle." : " Sans météo.")) +
       "\nDurée estimée : " + Math.round(times / 60) + " min (simple). Résultat indicatif.");
-    lastRouteResult = { from, to, totalKm, total, avgConso, price, toll, roundTrip,
+    lastRouteResult = { from, to, totalKm, total, avgConso, price, toll, fixed: fixedR, roundTrip,
       profile: profile.map(p => ({ d: +p.d.toFixed(3), v: +p.v.toFixed(1), conso: +p.conso.toFixed(2) })),
       oneWayKm };
     addDest(from);
@@ -1406,9 +1406,11 @@ el("gpsStart").addEventListener("click", () => {
 
     const price = getPrice();
     const avg = gpsTrip.dist > 0.2 ? gpsTrip.litres / gpsTrip.dist * 100 : null;
+    const fpkG = fixedPerKm();
+    const fixedG = fpkG ? fpkG.perKm * gpsTrip.dist : 0;
     el("gDist").textContent = fmt1(gpsTrip.dist) + " km";
     el("gLitres").textContent = fmt1(gpsTrip.litres) + " L";
-    el("gCost").textContent = price > 0 ? fmt(gpsTrip.litres * price) : "— (prix ?)";
+    el("gCost").textContent = price > 0 ? fmt(gpsTrip.litres * price + fixedG) : "— (prix ?)";
     el("gAvg").textContent = avg ? fmt1(avg) + " L/100" : "—";
     el("saveBtn3").style.display = "block";
   }, (err) => {
@@ -1701,7 +1703,7 @@ el("saveBtn1").addEventListener("click", () => {
   const fpk = fixedPerKm();
   const fixed = fpk ? fpk.perKm * dist : 0;
   saveEntry("Manuel", desc,
-    (num(el("amount").dataset.val) || 0) + fixed,
+    (num(el("amount").dataset.val) || 0),
     conso > 0 ? fmt1(conso) + " L/100" : "",
     { litres: litres, fuel: litres * getPrice(), toll: isNaN(toll) ? 0 : toll,
       fixed: fixed, dist: dist });
@@ -1709,12 +1711,11 @@ el("saveBtn1").addEventListener("click", () => {
 el("saveBtn2").addEventListener("click", () => {
   if (!lastRouteResult) return;
   const litres = lastRouteResult.avgConso * lastRouteResult.totalKm / 100;
-  const fpk2 = fixedPerKm();
-  const fixed2 = fpk2 ? fpk2.perKm * lastRouteResult.totalKm : 0;
+  const fixed2 = lastRouteResult.fixed || 0;
   saveEntry("Itinéraire",
     lastRouteResult.from + " → " + lastRouteResult.to +
     " (" + fmt1(lastRouteResult.totalKm) + " km" + (lastRouteResult.roundTrip ? ", A-R" : "") + ")",
-    lastRouteResult.total + fixed2,
+    lastRouteResult.total,
     fmt1(lastRouteResult.avgConso) + " L/100 (moyenne)",
     { full: "Départ : " + lastRouteResult.from + "\nArrivée : " + lastRouteResult.to,
       profile: lastRouteResult.profile, oneWayKm: lastRouteResult.oneWayKm,
