@@ -526,11 +526,12 @@
     <div class="full" id="mFull"></div>
     <div class="stats" id="mStats"></div>
     <div id="mDateEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
-      <label for="mTripDate" style="margin:0;">📅 Date du trajet (utilisée pour le tri de l'historique)</label>
-      <div class="row" style="align-items:end;margin-top:4px;">
+      <label for="mTripDate" style="margin:0;">📅 Date et heure de départ (utilisées pour le tri de l'historique)</label>
+      <div class="row" style="margin-top:4px;">
         <div><input id="mTripDate" type="date"></div>
-        <div style="flex:0 0 auto;"><button class="btn blue" id="mTripSave" style="margin-top:0;padding:9px 14px;">💾 Enregistrer la date</button></div>
+        <div><input id="mTripTime" type="time"></div>
       </div>
+      <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer la date et l'heure</button>
     </div>
     <div class="chart2" id="mChart" style="display:none;"><div id="mChartIn"></div></div>
     <button class="btn blue" id="mClose">Fermer</button>
@@ -1636,7 +1637,8 @@ function renderHistory() {
           (h.compte !== false ? " checked" : "") + '>' +
         '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
           '<div class="date">' + (h.tripDate
-            ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR")
+            ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
+              " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
             : dateTxt) + ' <span class="mode">· ' + h.mode + '</span></div>' +
           '<div class="desc">' + (h.desc || "") + badge + '</div>' +
           (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
@@ -1785,10 +1787,11 @@ el("mTripSave").addEventListener("click", () => {
   if (!h) return;
   const v = el("mTripDate").value;
   if (!v) { toast("Choisis une date de trajet"); return; }
-  h.tripDate = new Date(v + "T12:00:00").toISOString();
+  const t = el("mTripTime").value || "12:00";
+  h.tripDate = new Date(v + "T" + t + ":00").toISOString();
   saveHistory();
   renderHistory();
-  toast("Date du trajet mise à jour ✔");
+  toast("Date et heure de départ mises à jour ✔");
 });
 el("modalBg").addEventListener("click", (e) => {
   if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
@@ -1822,12 +1825,14 @@ function openDetail(h) {
   if (parts.length) parts.push("💰 Total : " + fmt(h.total));
   el("mStats").textContent = "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
     d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
-    (h.tripDate ? " · Trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") : "") +
+    (h.tripDate ? " · Départ le " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
+      " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "") +
     (h.conso ? " · Conso : " + h.conso : "") + (h.desc ? " · " + h.desc : "") +
     (parts.length ? "\n" + parts.join("\n") : "");
   el("mDateEdit").style.display = "block";
   mDateEditId = h.id;
   el("mTripDate").value = h.tripDate ? h.tripDate.slice(0, 10) : "";
+  el("mTripTime").value = h.tripDate ? h.tripDate.slice(11, 16) : "";
   if (h.profile && h.profile.length) {
     buildChart(h.profile, h.oneWayKm, "mChartIn");
     el("mChart").style.display = "block";
