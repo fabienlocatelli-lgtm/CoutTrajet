@@ -288,6 +288,14 @@
     </div>
     <div class="status" id="gpsStatus"></div>
 
+    <details class="info">
+      <summary>ℹ️ La distance reste à 0 ?</summary>
+      La distance et la conso ne sont comptées qu'avec un signal précis (&lt; 30 m) et une vitesse GPS.
+      Une précision de ~2000 m signifie que le téléphone n'a pas de fix satellite (position « réseau »).
+      Vérifiez la <b>position précise</b> du navigateur (iOS : Réglages &gt; Confidentialité &gt; Service de localisation ;
+      Android : autorisation de position « Précise »), placez-vous à l'extérieur et laissez le GPS se caler 1–2 min.
+    </details>
+
     <div class="result" id="gpsLive" style="display:none;">
       <div class="detail" style="margin:0;">Consommation instantanée</div>
       <div class="amount" id="gConso">—</div>
@@ -570,7 +578,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.2 bêta · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.3 bêta · 27/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -1412,7 +1420,7 @@ el("gpsStart").addEventListener("click", () => {
   el("gpsCalib").style.display = "block";
   keepAwakeOn();
   gStatus("En attente du signal GPS…");
-  const GPS_OPTS = { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 };
+  const GPS_OPTS = { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }; // position fraîche obligatoire (comme avant la v2.1)
   function onGpsPos(pos) {
     try {
     if (!pos.coords || typeof pos.coords.latitude !== "number" || typeof pos.coords.longitude !== "number" ||
@@ -1421,7 +1429,8 @@ el("gpsStart").addEventListener("click", () => {
     const acc = pos.coords.accuracy || 0;
     const here = [pos.coords.longitude, pos.coords.latitude];
     gpsTrip.samples++;
-    gStatus("Signal GPS (" + gpsTrip.samples + " pts, précision " + Math.round(acc) + " m)");
+    gStatus("Signal GPS (" + gpsTrip.samples + " pts, précision " + Math.round(acc) + " m)" +
+      (acc >= 30 ? " — trop imprécis pour mesurer, attendez un meilleur fix" : ""));
 
     if (gpsTrip.last && acc < 30 && pos.coords.speed !== null && pos.coords.speed > 1) {
       const d = haversine(gpsTrip.last, here) / 1000; // haversine → mètres, compteur → km
@@ -2141,11 +2150,13 @@ el("impFile").addEventListener("change", (e) => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.2 bêta";
+const APP_VERSION = "v2.3 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 27/10/2026",
+    "GPS temps réel : retour à la position fraîche obligatoire (cache 0 s, comme avant la v2.1), message explicite quand la précision est insuffisante pour mesurer, aide « La distance reste à 0 ? » dans le panneau Temps réel."],
+  ["v2.2 bêta · 27/10/2026",
     "Correctif pente : en descente l'économie est plafonnée à −70 % de la conso de base (injection coupée ≈ ralenti), la consommation ne peut plus être quasi nulle sur un trajet descendant · correctif arrêt intermédiaire : les annotations OSRM sont désormais lues sur toutes les jambes de l'itinéraire, la courbe et les litres sont corrects avec un point d'arrêt."],
-  [APP_VERSION + " · 27/10/2026",
+  ["v2.1 bêta · 27/10/2026",
     "Correctif temps réel GPS : un point isolé ne bloque plus le suivi (erreurs interceptées et affichées), relance automatique du signal s'il se fige (timeout ou silence > 60 s), cache GPS toléré 1 s."],
   ["v2.0 · 27/10/2026",
     "Édition minimaliste (cliquer le titre ou la date d'un trajet pour modifier, 2 boutons séparés) · arrêt intermédiaire optionnel en mode Adresse · mode Adresse en premier · section « Comment démarrer ? » dans l'Aide · coûts fixes : lissage en mois + coche « dépense mensuelle »."],
