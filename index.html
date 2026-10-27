@@ -570,7 +570,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.1 bêta · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.2 bêta · 27/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -1266,3 +1266,934 @@ el("calcRoute").addEventListener("click", async () => {
       let grade = 0;
       if (gradeList) {
         let best = gradeList[0];
+        for (const g of gradeList) { if (Math.abs(g.d - cum) < Math.abs(best.d - cum)) best = g; }
+        grade = best.g;
+      }
+      let windAx = 0, rainMult = 1;
+      if (wxList) {
+        let best = wxList[0];
+        for (const w of wxList) { if (Math.abs(w.dKm - cum) < Math.abs(best.dKm - cum)) best = w; }
+        windAx = best.axial; rainMult = best.rainMult;
+      } else if (el("wxOn").checked && !el("wxApi").checked) {
+        windAx = manualWind; rainMult = manualRainMult;
+      }
+      const base = interp(curve, v) * f;
+      let grEff = gradeEffect(grade);
+      grEff = Math.max(grEff, -0.7 * base); // descente : au mieux −70 % de la base (injection coupée ≈ ralenti)
+      const wEff = windEffect(v, windAx);
+      const c = Math.max(0.05, (base + grEff + wEff) * rainMult);
+      const segKm = segLenM / 1000;
+      const segL = segKm / 100 * c;
+      totalL += segL;
+      Lbase += segKm / 100 * base;
+      Lslope += segKm / 100 * grEff;
+      Lwind += segKm / 100 * wEff;
+      if (rainMult > 1) LrainExtra += segL - segKm / 100 * (base + grEff + wEff);
+      rawProfile.push({ d: cum + segKm / 2, v, conso: c, len: segKm });
+      cum += segKm;
+    }
+
+    const roundTrip = el("roundTrip2").checked;
+    const distMult = roundTrip ? 2 : 1;
+    const totalKm = oneWayKm * distMult;
+    const totalL2 = totalL * distMult;
+
+    const tollVal = parseMoney(el("toll2").value);
+    const toll = el("hasToll2").checked ? ((isNaN(tollVal) ? 0 : tollVal) * distMult) : 0;
+    const fuel = totalL2 * price;
+    const fpkR = fixedPerKm();
+    const fixedR = fpkR ? fpkR.perKm * totalKm : 0;
+    const total = fuel + toll + fixedR;
+    const avgConso = totalL2 / totalKm * 100;
+
+    const NB = 80;
+    const profile = [];
+    for (let b = 0; b < NB; b++) {
+      const d0 = oneWayKm * b / NB, d1 = oneWayKm * (b + 1) / NB;
+      let wsum = 0, vsum = 0, csum = 0;
+      rawProfile.forEach(p => {
+        if (p.d >= d0 && p.d < d1) { wsum += p.len; vsum += p.v * p.len; csum += p.conso * p.len; }
+      });
+      if (wsum > 0) profile.push({ d: (d0 + d1) / 2, v: vsum / wsum, conso: csum / wsum,
+        alt: altAt((d0 + d1) / 2) });
+    }
+    if (!profile.length && rawProfile.length) profile.push(rawProfile[0]);
+
+    el("result2").style.display = "block";
+    el("amount2").textContent = fmt(total);
+    el("amount2").dataset.val = String(total);
+    let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + fmt1(totalL2) +
+      " L · moyenne " + fmt1(avgConso) + " L/100 · carburant " + fmt(fuel);
+    if (toll > 0) detail += " · péage " + fmt(toll);
+    if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
+    detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
+      " · pente " + (Lslope >= 0 ? "+" : "") + fmt1(Lslope * distMult) + " L" +
+      " · vent " + (Lwind >= 0 ? "+" : "") + fmt1(Lwind * distMult) + " L" +
+      " · pluie +" + fmt1(LrainExtra * distMult) + " L";
+    el("detail2").textContent = detail;
+
+    buildChart(profile, oneWayKm, "chart");
+    el("chartBox").style.display = "block";
+    el("saveBtn2").style.display = "block";
+
+    setStatus("Terminé en " + ((Date.now() - t0) / 1000).toFixed(1) + " s. Vitesses : " + nOsrm +
+      " tronçons OSRM, " + nDef + " par défaut." +
+      (gradeList ? " Dénivelé intégré (" + elevs.length + " points d'altitude)."
+        : (gradeErr ? " ⚠ Altitudes reçues mais pentes non calculées."
+        : " ⚠ Altitude indisponible → à plat.")) +
+      (wxMode ? " Météo " + wxMode + "." :
+        (el("wxOn").checked ? " Météo simplifiée manuelle." : " Sans météo.")) +
+      "\nDurée estimée : " + Math.round(times / 60) + " min (simple). Résultat indicatif.");
+    lastRouteResult = { from, to, totalKm, total, avgConso, price, toll, fixed: fixedR, roundTrip,
+      profile: profile.map(p => ({ d: +p.d.toFixed(3), v: +p.v.toFixed(1), conso: +p.conso.toFixed(2) })),
+      oneWayKm };
+    addDest(from);
+    addDest(to);
+  } catch (err) {
+    setStatus("❌ " + err.message, true);
+  } finally {
+    el("calcRoute").disabled = false;
+    el("calcRoute").textContent = "🚗 Calculer le coût";
+  }
+});
+
+/* ---------- Garde l'écran allumé pendant un trajet (Wake Lock) ---------- */
+let wakeLock = null;
+async function keepAwakeOn() {
+  try {
+    if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+  } catch (e) { /* non supporté ou refusé → l'écran pourra s'éteindre */ }
+}
+function keepAwakeOff() { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } }
+document.addEventListener("visibilitychange", () => {
+  // ré-acquisition après retour sur la page (si un trajet est en cours)
+  if (!document.hidden && wakeLock === null && watchId !== null) keepAwakeOn();
+});
+
+/* ---------- Niveau 3 : temps réel GPS ---------- */
+let watchId = null;
+let gpsWatchdog = null;
+let gpsTrip = null;
+const gStatus = (m, err) => { el("gpsStatus").textContent = m; el("gpsStatus").className = "status" + (err ? " err" : ""); };
+
+async function rtElevation(lat, lon) {
+  const r = await fetch("https://api.open-meteo.com/v1/elevation?latitude=" +
+    lat.toFixed(5) + "&longitude=" + lon.toFixed(5));
+  if (!r.ok) throw new Error("évation indisponible");
+  const d = await r.json();
+  return d.elevation && d.elevation[0];
+}
+async function rtWeather(lat, lon) {
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat.toFixed(4) +
+    "&longitude=" + lon.toFixed(4) + "&current=wind_speed_10m,wind_direction_10m,rain,precipitation");
+  if (!r.ok) throw new Error("météo indisponible");
+  const d = await r.json();
+  const c = d.current || {};
+  return { wind: c.wind_speed_10m || 0, dir: c.wind_direction_10m || 0,
+    rain: c.rain || c.precipitation || 0 };
+}
+async function rtPlace(lat, lon) { // lieu le plus proche (OpenStreetMap)
+  const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=fr&lat=" +
+    lat.toFixed(5) + "&lon=" + lon.toFixed(5));
+  if (!r.ok) throw new Error("lieu indisponible");
+  const j = await r.json();
+  const a = j.address || {};
+  return a.village || a.town || a.city || a.city_district || a.municipality || a.county || j.name || null;
+}
+
+el("gpsStart").addEventListener("click", () => {
+  if (!navigator.geolocation) { gStatus("La localisation n'est pas disponible dans ce navigateur.", true); return; }
+  gpsTrip = { dist: 0, litres: 0, last: null, first: null, prevDist: 0, t0: Date.now(), samples: 0,
+    altSamples: [], lastAltFetch: -99, lastWxFetch: -99, wx: null, lastCap: 0, lastV: 0,
+    lastConso: null, moveHist: [] };
+  el("gpsStart").style.display = "none";
+  el("gpsStop").style.display = "block";
+  el("gpsLive").style.display = "block";
+  el("gpsCalib").style.display = "block";
+  keepAwakeOn();
+  gStatus("En attente du signal GPS…");
+  const GPS_OPTS = { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 };
+  function onGpsPos(pos) {
+    try {
+    if (!pos.coords || typeof pos.coords.latitude !== "number" || typeof pos.coords.longitude !== "number" ||
+      !isFinite(pos.coords.latitude) || !isFinite(pos.coords.longitude)) return; // point invalide → ignoré
+    const v = pos.coords.speed !== null ? pos.coords.speed * 3.6 : null;
+    const acc = pos.coords.accuracy || 0;
+    const here = [pos.coords.longitude, pos.coords.latitude];
+    gpsTrip.samples++;
+    gStatus("Signal GPS (" + gpsTrip.samples + " pts, précision " + Math.round(acc) + " m)");
+
+    if (gpsTrip.last && acc < 30 && pos.coords.speed !== null && pos.coords.speed > 1) {
+      const d = haversine(gpsTrip.last, here) / 1000; // haversine → mètres, compteur → km
+      if (isFinite(d) && d >= 0) {
+        gpsTrip.dist += d;
+        if (d > 0.003) gpsTrip.lastCap = bearing(gpsTrip.last, here);
+      }
+    }
+    if (acc < 50) gpsTrip.last = here;
+    if (acc < 50 && !gpsTrip.first) gpsTrip.first = here;
+
+    // Dénivelé : altitude adaptative selon la vitesse (< 50 km/h : 500 m, < 70 : 1 km, sinon 2 km)
+    const altStep = v === null ? 1 : (v < 50 ? 0.5 : (v < 70 ? 1 : 2));
+    if (gpsTrip.dist - gpsTrip.lastAltFetch > altStep) {
+      gpsTrip.lastAltFetch = gpsTrip.dist;
+      rtElevation(here[1], here[0]).then(alt => {
+        gpsTrip.altSamples.push({ d: gpsTrip.dist, alt });
+        if (gpsTrip.altSamples.length > 6) gpsTrip.altSamples.shift();
+      }).catch(() => {});
+    }
+    let grade = 0;
+    const as = gpsTrip.altSamples;
+    if (as.length >= 2) {
+      const a = as[Math.max(0, as.length - 3)], b = as[as.length - 1];
+      const dd = b.d - a.d;
+      if (dd > 0.3) grade = Math.max(-0.12, Math.min(0.12, (b.alt - a.alt) / (dd * 1000)));
+    }
+
+    // Météo réelle : tous les 10 km
+    if (el("wxRt").checked && gpsTrip.dist - gpsTrip.lastWxFetch > 10) {
+      gpsTrip.lastWxFetch = gpsTrip.dist;
+      rtWeather(here[1], here[0]).then(w => { gpsTrip.wx = w; }).catch(() => {});
+    }
+    let windAx = 0, rainMult = 1;
+    if (el("wxRt").checked && gpsTrip.wx) {
+      windAx = gpsTrip.wx.wind * Math.cos((gpsTrip.wx.dir - gpsTrip.lastCap) * Math.PI / 180);
+      rainMult = gpsTrip.wx.rain <= 0 ? 1 : (gpsTrip.wx.rain < 1 ? 1.05 : 1.12);
+    }
+
+    const f = condFactor();
+    if (v !== null && v >= 3) {
+      const vc = Math.min(v, getMaxSpeed());
+      const base = interp(curve, vc) * f;
+      const grEff = Math.max(gradeEffect(grade), -0.7 * base); // descente plafonnée au ralenti
+      const wEff = windEffect(vc, windAx);
+      const c = Math.max(0.05, (base + grEff + wEff) * rainMult);
+      gpsTrip.lastConso = c;
+      gpsTrip.lastV = v;
+      el("gConso").textContent = fmt1(c) + " L/100";
+      el("gSpeed").textContent = Math.round(v) + " km/h";
+      el("gBreak").textContent = "base " + fmt1(base) +
+        (grade ? " · pente " + (grade * 100).toFixed(1).replace(".", ",") + "% (" + (grEff >= 0 ? "+" : "") + fmt1(grEff) + ")" : "") +
+        (windAx ? " · vent " + (wEff >= 0 ? "+" : "") + fmt1(wEff) : "") +
+        (rainMult > 1 ? " · pluie ×" + rainMult : "");
+    } else if (v !== null && v < 3) {
+      el("gConso").textContent = "à l'arrêt";
+      el("gSpeed").textContent = "0 km/h";
+      el("gBreak").textContent = "";
+    } else {
+      el("gConso").textContent = "—";
+      el("gSpeed").textContent = "vitesse GPS indisponible";
+    }
+
+    if (gpsTrip.dist > gpsTrip.prevDist && gpsTrip.lastConso !== null) {
+      gpsTrip.litres += (gpsTrip.dist - gpsTrip.prevDist) / 100 * gpsTrip.lastConso;
+    }
+    gpsTrip.prevDist = gpsTrip.dist;
+
+    const price = getPrice();
+    const avg = gpsTrip.dist > 0.2 ? gpsTrip.litres / gpsTrip.dist * 100 : null;
+    const fpkG = fixedPerKm();
+    const fixedG = fpkG ? fpkG.perKm * gpsTrip.dist : 0;
+    el("gDist").textContent = fmt1(gpsTrip.dist) + " km";
+    el("gLitres").textContent = fmt1(gpsTrip.litres) + " L";
+    el("gCost").textContent = price > 0 ? fmt(gpsTrip.litres * price + fixedG) : "— (prix ?)";
+    el("gCostNoFixed").textContent = price > 0 && fixedG > 0
+      ? "Sans coûts fixes : " + fmt(gpsTrip.litres * price) : "";
+    el("gAvg").textContent = avg ? fmt1(avg) + " L/100" : "—";
+    el("saveBtn3").style.display = "block";
+    } catch (e) {
+      gStatus("Point GPS ignoré (" + (e && e.message ? e.message : "erreur") + ")", true);
+    }
+  }
+  function onGpsErr(err) {
+    gStatus("Erreur de localisation : " + err.message +
+      (err.code === 1 ? " (autorisation refusée)" : ""), true);
+    // TIMEOUT (code 3) : sur certains navigateurs le watch se fige après le 1er point → relance
+    if (err.code === 3 && watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
+    }
+  }
+  // Watchdog : si aucun nouveau point pendant 60 s, on ré-enregistre le watch
+  let gpsPrevSamples = 0;
+  gpsWatchdog = setInterval(() => {
+    if (watchId === null || !gpsTrip) { clearInterval(gpsWatchdog); gpsWatchdog = null; return; }
+    if (gpsTrip.samples === gpsPrevSamples) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
+      gStatus("Signal GPS relancé…");
+    }
+    gpsPrevSamples = gpsTrip.samples;
+  }, 60000);
+  watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
+});
+
+el("gpsStop").addEventListener("click", () => {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  if (gpsWatchdog) { clearInterval(gpsWatchdog); gpsWatchdog = null; }
+  keepAwakeOff();
+  el("gpsStart").style.display = "block";
+  el("gpsStop").style.display = "none";
+  el("gpsCalib").style.display = "none";
+  gStatus("Trajet arrêté.");
+});
+
+el("gpsCalib").addEventListener("click", () => {
+  if (!gpsTrip || !(gpsTrip.lastV >= 10)) {
+    toast("Attendez une vitesse GPS stabilisée (≥ 10 km/h)");
+    return;
+  }
+  const input = prompt("Conso affichée au tableau de bord (L/100) à " + Math.round(gpsTrip.lastV) + " km/h ?", "");
+  if (input === null) return;
+  const c = num(input);
+  if (!(c > 0)) { toast("Valeur invalide"); return; }
+  const vNow = Math.round(gpsTrip.lastV);
+  const near = curve.findIndex(p => Math.abs(p[0] - vNow) <= 5);
+  if (near >= 0) curve[near] = [vNow, Math.round(c * 10) / 10];
+  else { curve.push([vNow, Math.round(c * 10) / 10]); }
+  store.set("trajet_curve", JSON.stringify(curve));
+  renderCurveTable();
+  toast("Point d'étalonnage ajouté : " + vNow + " km/h → " + c + " L/100 ✔");
+});
+
+el("saveBtn3").addEventListener("click", async () => {
+  if (!gpsTrip || gpsTrip.dist < 0.1) { alert("Aucun trajet mesuré."); return; }
+  const price = getPrice();
+  const avg = gpsTrip.litres / gpsTrip.dist * 100;
+  const mins = Math.round((Date.now() - gpsTrip.t0) / 60000);
+  const fpk3 = fixedPerKm();
+  const fixed3 = fpk3 ? fpk3.perKm * gpsTrip.dist : 0;
+  let name = null;
+  const s = gpsTrip.first, e = gpsTrip.last;
+  if (s && e) {
+    toast("Recherche des lieux de départ et d'arrivée…");
+    name = s[1].toFixed(3).replace(".", ",") + " , " + s[0].toFixed(3).replace(".", ",") +
+      " → " + e[1].toFixed(3).replace(".", ",") + " , " + e[0].toFixed(3).replace(".", ",");
+    try {
+      const a = await rtPlace(s[1], s[0]);
+      await new Promise(r => setTimeout(r, 1100)); // Nominatim : 1 requête/s max
+      const b = await rtPlace(e[1], e[0]);
+      if (a || b) name = (a || "Départ") + " → " + (b || "Arrivée");
+    } catch (err) { /* garde les coordonnées GPS */ }
+  }
+  saveEntry("Temps réel",
+    fmt1(gpsTrip.dist) + " km en " + mins + " min",
+    (price > 0 ? gpsTrip.litres * price : 0) + fixed3,
+    fmt1(avg) + " L/100 (moyenne GPS)",
+    { full: "Trajet GPS en temps réel\n" + fmt1(gpsTrip.dist) + " km · " + fmt1(gpsTrip.litres) + " L\n" +
+      (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné") +
+      (name ? "\n" + name + " (lieux © OpenStreetMap)" : ""),
+      litres: gpsTrip.litres, fuel: price > 0 ? gpsTrip.litres * price : null, toll: 0,
+      fixed: fixed3, dist: gpsTrip.dist, name: name });
+});
+
+/* ---------- Historique partagé (trajets + pleins) ---------- */
+let history = [];
+try { history = JSON.parse(store.get("trajet_history") || "[]") || []; } catch (e) { history = []; }
+const saveHistory = () => store.set("trajet_history", JSON.stringify(history));
+
+/* Réconciliation entre pleins :
+   - consommation réelle d'une période = litres remis au 2ᵉ plein (plein complet)
+   - trajets cochés de la période mis à l'échelle : L_ajusté = L_estimé × k
+   - coût ajusté = L_ajusté × prix au litre du plein précédent + péage
+   - période réconciliable seulement si les DEUX pleins sont complets */
+function reconcile() {
+  history.forEach(h => { if (h.type !== "Plein") h.adjusted = null; });
+  const sorted = history.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pleins = sorted.filter(h => h.type === "Plein");
+  let lastMsg = "Aucune période réconciliable (il faut 2 pleins complets consécutifs).";
+  for (let i = 0; i < pleins.length - 1; i++) {
+    const A = pleins[i], B = pleins[i + 1];
+    if (A.notFull || B.notFull) continue;
+    const trips = sorted.filter(h => h.type !== "Plein" && h.compte &&
+      (h.litres || 0) > 0 &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    const est = trips.reduce((s, t) => s + t.litres, 0);
+    if (!trips.length || est <= 0) continue;
+    const k = B.liters / est;
+    trips.forEach(t => {
+      t.adjusted = { litres: t.litres * k,
+        cost: t.litres * k * A.priceL + (t.toll || 0) + (t.fixed || 0),
+        k: k, priceL: A.priceL };
+    });
+    lastMsg = "Période du " + new Date(A.date).toLocaleDateString("fr-FR") + " au " +
+      new Date(B.date).toLocaleDateString("fr-FR") + " : estimé " + fmt1(est) +
+      " L, réel " + fmt1(B.liters) + " L → facteur ×" + k.toFixed(3) +
+      " appliqué à " + trips.length + " trajet(s) coché(s).";
+  }
+  saveHistory();
+  const consoPts = [];
+  const complete = sorted.filter(h => h.type === "Plein" && !h.notFull);
+  for (let i = 0; i < complete.length - 1; i++) {
+    const A = complete[i], B = complete[i + 1];
+    if (!(A.odo > 0) || !(B.odo > 0)) continue;
+    const km = B.odo - A.odo;
+    if (km <= 0) continue;
+    const added = sorted.filter(h => h.type === "Plein" &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date))
+      .reduce((s, p) => s + (p.liters || 0), 0);
+    if (!(added > 0)) continue;
+    consoPts.push({ t: new Date(B.date).getTime(), conso: added / km * 100, km,
+      from: A.date, to: B.date });
+  }
+  let consoMsg = "";
+  const last = consoPts[consoPts.length - 1];
+  if (last) {
+    consoMsg = "Conso réelle : " + fmt1(last.conso) + " L/100 sur " +
+      last.km.toLocaleString("fr-FR") + " km (pleins du " +
+      new Date(last.from).toLocaleDateString("fr-FR") + " au " +
+      new Date(last.to).toLocaleDateString("fr-FR") + ")." +
+      "\nPour recalibrer la courbe : saisis-la dans « 🎯 Ajuster à ma conso réelle ».";
+  }
+  const ref = consoPts.filter(p => p.km >= 200).slice(-1)[0];
+  if (ref && !userConsoTouched) {
+    const v = ref.conso.toFixed(2);
+    if (el("conso").value !== v) {
+      el("conso").value = v;
+      store.set("trajet_conso", v);
+      compute();
+    }
+  }
+  el("pleinStatus").textContent = lastMsg + (consoMsg ? "\n\n" + consoMsg : "");
+  renderConsoChart(consoPts);
+  renderFixed();
+  return lastMsg;
+}
+
+function renderConsoChart(pts) {
+  const box = el("consoChartBox");
+  if (!pts || !pts.length) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  const W = 440, H = 180, pad = 36;
+  const cs = pts.map(p => p.conso);
+  const minC = Math.min(...cs) * 0.94, maxC = Math.max(...cs) * 1.06;
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+  const x = (t) => pts.length === 1 ? W / 2 : pad + (t - t0) / Math.max(t1 - t0, 1) * (W - pad - 10);
+  const y = (c) => H - pad - (c - minC) / Math.max(maxC - minC, 0.01) * (H - pad - 14);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+  s += '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - 8) + '" y2="' + (H - pad) + '" stroke="#334155"/>';
+  s += '<line x1="' + pad + '" y1="10" x2="' + pad + '" y2="' + (H - pad) + '" stroke="#334155"/>';
+  if (pts.length > 1) {
+    s += '<polyline points="' + pts.map(p => x(p.t).toFixed(1) + "," + y(p.conso).toFixed(1)).join(" ") +
+      '" fill="none" stroke="#4ade80" stroke-width="2"/>';
+  }
+  pts.forEach(p => {
+    s += '<circle cx="' + x(p.t).toFixed(1) + '" cy="' + y(p.conso).toFixed(1) + '" r="4" fill="#4ade80"/>';
+    s += '<text x="' + x(p.t).toFixed(1) + '" y="' + (y(p.conso) - 9).toFixed(1) +
+      '" fill="#e2e8f0" font-size="10" text-anchor="middle">' + fmt1(p.conso) + '</text>';
+  });
+  s += '<text x="' + (pad - 4) + '" y="' + (y(maxC) + 3) + '" fill="#64748b" font-size="9" text-anchor="end">' +
+    Math.round(maxC) + '</text>';
+  s += '<text x="' + (pad - 4) + '" y="' + (H - pad) + '" fill="#64748b" font-size="9" text-anchor="end">' +
+    Math.round(minC) + '</text>';
+  s += '<text x="' + pad + '" y="' + (H - 8) + '" fill="#64748b" font-size="9">' +
+    new Date(pts[0].from).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }) + '</text>';
+  s += '<text x="' + (W - 60) + '" y="' + (H - 8) + '" fill="#64748b" font-size="9">' +
+    new Date(pts[pts.length - 1].to).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }) + '</text>';
+  s += '</svg>';
+  el("consoChart").innerHTML = s;
+}
+
+function renderHistory() {
+  const c = el("history");
+  c.innerHTML = "";
+  const sorted = history.slice().sort((a, b) =>
+    new Date(b.tripDate || b.date) - new Date(a.tripDate || a.date));
+  el("clearHist").style.display = sorted.length ? "block" : "none";
+  if (!sorted.length) {
+    c.innerHTML = '<div class="empty">Aucun calcul enregistré pour l\'instant</div>';
+    return;
+  }
+  sorted.forEach(h => {
+    const div = document.createElement("div");
+    div.className = "hist-item" + (h.type === "Plein" ? " plein" : "");
+    const d = new Date(h.date);
+    const dateTxt = d.toLocaleDateString("fr-FR") + " " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (h.type === "Plein") {
+      div.innerHTML =
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">⛽ PLEIN <span class="mode">' + dateTxt + '</span>' +
+            (h.notFull ? ' <span class="badge">non complet</span>' : '') + '</div>' +
+          '<div class="desc" style="color:#4ade80;">' + fmt1(h.liters) + ' L à ' +
+            h.priceL.toFixed(3).replace(".", ",") + ' €/L · ' + fmt(h.liters * h.priceL) +
+            (h.odo > 0 ? ' · ' + h.odo.toLocaleString("fr-FR") + ' km' : '') + '</div>' +
+        '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    } else {
+      const cost = h.adjusted ? h.adjusted.cost : h.total;
+      const badge = h.adjusted && Math.abs(h.adjusted.k - 1) > 0.001
+        ? ' <span class="badge">ajusté ×' + h.adjusted.k.toFixed(3) + '</span>' : '';
+      div.innerHTML =
+        '<input type="checkbox" class="cb" data-hcheck="' + h.id + '"' +
+          (h.compte !== false ? " checked" : "") + '>' +
+        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+          '<div class="date">' + (h.tripDate
+            ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
+              " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+            : dateTxt) + ' <span class="mode">· ' + h.mode + '</span></div>' +
+          (h.name ? '<div class="desc" style="color:#e2e8f0;">' + h.name + '</div>' : '') +
+          '<div class="desc">' + (h.desc || "") + badge + '</div>' +
+          (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
+        '</div>' +
+        '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;text-align:right;">' + fmt(cost) +
+          ((h.fixed || 0) > 0
+            ? '<div style="font-size:.68rem;color:#94a3b8;font-weight:400;">sans fixes ' + fmt(cost - h.fixed) + '</div>'
+            : '') +
+        '</div>' +
+        '<button class="del" data-hdel="' + h.id + '">✕</button>';
+    }
+    c.appendChild(div);
+  });
+  const checked = sorted.filter(h => h.type !== "Plein" && h.compte !== false);
+  if (checked.length) {
+    let totWith = 0, totWithout = 0;
+    checked.forEach(h => {
+      const cst = h.adjusted ? h.adjusted.cost : h.total;
+      totWith += cst;
+      totWithout += cst - (h.fixed || 0);
+    });
+    const tot = document.createElement("div");
+    tot.className = "meta";
+    tot.style.textAlign = "left";
+    tot.style.marginTop = "10px";
+    tot.innerHTML = "<b>Sélection (" + checked.length + " trajet" + (checked.length > 1 ? "s" : "") +
+      " coché" + (checked.length > 1 ? "s" : "") + ")</b> — sans coûts fixes : " + fmt(totWithout) +
+      " · avec coûts fixes : " + fmt(totWith);
+    c.appendChild(tot);
+  }
+}
+el("history").addEventListener("click", (e) => {
+  const chk = e.target.dataset.hcheck;
+  if (chk !== undefined) {
+    const h = history.find(x => String(x.id) === String(chk));
+    if (h) { h.compte = e.target.checked; saveHistory(); reconcile(); renderHistory(); }
+    return;
+  }
+  const open = e.target.dataset.hopen;
+  if (open !== undefined) {
+    const h = history.find(x => String(x.id) === String(open));
+    if (h) openDetail(h);
+  }
+});
+el("history").addEventListener("click", (e) => {
+  const id = e.target.dataset.hdel;
+  if (id === undefined) return;
+  const h = history.find(x => String(x.id) === String(id));
+  const label = h ? (h.type === "Plein" ? "ce plein" : (h.desc || "cette entrée")) : "cette entrée";
+  if (confirm("Supprimer « " + label + " » de l'historique ?")) {
+    history = history.filter(x => String(x.id) !== String(id));
+    saveHistory();
+    reconcile();
+    renderHistory();
+  }
+});
+el("clearHist").addEventListener("click", () => {
+  if (confirm("Supprimer TOUT l'historique (trajets et pleins) ?")) {
+    history = [];
+    saveHistory();
+    renderHistory();
+    reconcile();
+  }
+});
+
+/* Ajout d'un plein */
+function pushPlein(liters, priceL, odo, notFull, dateIso, desc) {
+  history.push({ id: Date.now(), date: dateIso, type: "Plein",
+    liters: liters, priceL: priceL, notFull: notFull,
+    odo: odo > 0 ? odo : null, desc: desc });
+}
+el("addPlein").addEventListener("click", () => {
+  const priceL = num(el("flPrice").value);
+  const liters = num(el("flLitres").value);
+  if (!(priceL > 0) || !(liters > 0)) { toast("Prix au litre et litres remis requis"); return; }
+  const d = el("flDate").value || new Date().toISOString().slice(0, 10);
+  const t = (el("flTime").value || new Date().toTimeString().slice(0, 5)) + ":00";
+  const date = new Date(d + "T" + t);
+  if (isNaN(date)) { toast("Date/heure invalide"); return; }
+  const odo = num(el("flOdo").value);
+  pushPlein(liters, priceL, odo, el("flNotFull").checked, date.toISOString(),
+    "Plein " + fmt1(liters) + " L à " + priceL + " €/L" +
+    (odo > 0 ? " · " + odo.toLocaleString("fr-FR") + " km" : "") +
+    (el("flNotFull").checked ? " (non complet)" : ""));
+  el("flOdo").value = "";
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Plein ajouté ✔");
+});
+
+function saveEntry(mode, desc, total, conso, extra) {
+  extra = extra || {};
+  history.unshift({ id: Date.now(), date: new Date().toISOString(), mode, desc, total, conso,
+    litres: extra.litres || null, fuel: extra.fuel || null, toll: extra.toll || 0,
+    fixed: extra.fixed || 0, dist: extra.dist || 0, compte: true, adjusted: null,
+    full: extra.full || "", profile: extra.profile || null,
+    oneWayKm: extra.oneWayKm || 0, name: extra.name || null, tripDate: extra.tripDate || null });
+  saveHistory();
+  reconcile();
+  renderHistory();
+  toast("Enregistré dans l'historique ✔");
+}
+el("saveBtn1").addEventListener("click", () => {
+  if (el("amount").textContent === "—") { alert("Rien à enregistrer : le calcul est incomplet."); return; }
+  const names = segments.map(s => s.name).filter(Boolean);
+  let desc = names.length
+    ? names.join(" + ")
+    : segments.filter(s => num(s.dist) > 0).map(s => num(s.dist) + (s.rt ? " km A-R" : " km")).join(" + ");
+  const conso = num(el("conso").value);
+  let dist = 0;
+  segments.forEach(s => {
+    const d = num(s.dist);
+    if (d > 0) dist += s.rt ? d * 2 : d;
+  });
+  const litres = dist / 100 * conso;
+  const toll = el("hasToll").checked ? (parseMoney(el("toll").value) || 0) : 0;
+  const fpk = fixedPerKm();
+  const fixed = fpk ? fpk.perKm * dist : 0;
+  saveEntry("Manuel", desc,
+    (num(el("amount").dataset.val) || 0),
+    conso > 0 ? fmt1(conso) + " L/100" : "",
+    { litres: litres, fuel: litres * getPrice(), toll: isNaN(toll) ? 0 : toll,
+      fixed: fixed, dist: dist });
+});
+el("saveBtn2").addEventListener("click", () => {
+  if (!lastRouteResult) return;
+  const litres = lastRouteResult.avgConso * lastRouteResult.totalKm / 100;
+  const fixed2 = lastRouteResult.fixed || 0;
+  saveEntry("Itinéraire",
+    lastRouteResult.from + " → " + lastRouteResult.to +
+    " (" + fmt1(lastRouteResult.totalKm) + " km" + (lastRouteResult.roundTrip ? ", A-R" : "") + ")",
+    lastRouteResult.total,
+    fmt1(lastRouteResult.avgConso) + " L/100 (moyenne)",
+    { full: "Départ : " + lastRouteResult.from + "\nArrivée : " + lastRouteResult.to,
+      profile: lastRouteResult.profile, oneWayKm: lastRouteResult.oneWayKm,
+      litres: litres, fuel: litres * lastRouteResult.price, toll: lastRouteResult.toll,
+      fixed: fixed2, dist: lastRouteResult.totalKm });
+});
+
+/* ---------- Détail historique ---------- */
+el("mClose").addEventListener("click", () => el("modalBg").classList.remove("show"));
+el("mTitle").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  el("mNameEdit").style.display = el("mNameEdit").style.display === "none" ? "block" : "none";
+  el("mDateEdit").style.display = "none";
+});
+el("mDateLine").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  el("mDateEdit").style.display = el("mDateEdit").style.display === "none" ? "block" : "none";
+  el("mNameEdit").style.display = "none";
+});
+el("mTripSave").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  const h = history.find(x => String(x.id) === String(mDateEditId));
+  if (!h) return;
+  const v = el("mTripDate").value;
+  const t = el("mTripTime").value || "12:00";
+  if (v) h.tripDate = new Date(v + "T" + t + ":00").toISOString();
+  else h.tripDate = null;
+  saveHistory();
+  renderHistory();
+  toast("Date et heure de départ mises à jour ✔");
+});
+el("mNameSave").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  const h = history.find(x => String(x.id) === String(mDateEditId));
+  if (!h) return;
+  h.name = el("mTripName").value.trim() || null;
+  saveHistory();
+  renderHistory();
+  toast("Nom du trajet mis à jour ✔");
+});
+el("modalBg").addEventListener("click", (e) => {
+  if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
+});
+let mDateEditId = null;
+function openDetail(h) {
+  if (h.type === "Plein") {
+    const d = new Date(h.date);
+    el("mTitle").textContent = "⛽ Plein — " + fmt(d);
+    el("mFull").textContent = (h.notFull ? "Ravitaillement partiel (pas un plein complet)\n" : "Plein complet\n") +
+      (h.desc || "");
+    el("mStats").textContent = "Litres remis : " + fmt1(h.liters) + " L · Prix : " +
+      h.priceL.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) +
+      " €/L · Total payé : " + fmt(h.liters * h.priceL) + " €" +
+      " · Le " + d.toLocaleDateString("fr-FR") + " à " +
+      d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
+      (h.odo > 0 ? " · Compteur : " + h.odo.toLocaleString("fr-FR") + " km" : "");
+    el("mChart").style.display = "none";
+    el("mDateEdit").style.display = "none";
+    el("mNameEdit").style.display = "none";
+    el("mDateLine").style.display = "none";
+    el("modalBg").classList.add("show");
+    mDateEditId = null;
+    return;
+  }
+  el("mTitle").textContent = (h.name ? h.name + " · " : "") + h.mode + " — " + fmt(h.total);
+  el("mFull").textContent = h.full || h.desc || "";
+  const d = new Date(h.date);
+  el("mDateLine").textContent = "📅 " +
+    (h.tripDate
+      ? "Départ : " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
+        " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " · "
+      : "") +
+    "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
+    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " ✏️";
+  const parts = [];
+  if (h.fuel != null && h.fuel > 0) parts.push("⛽ Essence : " + fmt(h.fuel) +
+    (h.litres ? " (" + fmt1(h.litres) + " L)" : ""));
+  if (h.toll > 0) parts.push("🛂 Péage : " + fmt(h.toll));
+  if (h.fixed > 0) parts.push("🔧 Coûts fixes véhicule : " + fmt(h.fixed));
+  if (parts.length) parts.push("💰 Total : " + fmt(h.total));
+  el("mStats").textContent =
+    (h.conso ? "Conso : " + h.conso : "") + (h.desc ? (h.conso ? " · " : "") + h.desc : "") +
+    (parts.length ? "\n" + parts.join("\n") : "");
+  el("mDateEdit").style.display = "none";
+  el("mNameEdit").style.display = "none";
+  mDateEditId = h.id;
+  el("mTripDate").value = h.tripDate ? h.tripDate.slice(0, 10) : "";
+  el("mTripTime").value = h.tripDate ? h.tripDate.slice(11, 16) : "";
+  el("mTripName").value = h.name || "";
+  el("mDateLine").style.display = "block";
+  if (h.profile && h.profile.length) {
+    buildChart(h.profile, h.oneWayKm, "mChartIn");
+    el("mChart").style.display = "block";
+  } else {
+    el("mChart").style.display = "none";
+  }
+  el("modalBg").classList.add("show");
+}
+
+/* ---------- Coûts fixes du véhicule ---------- */
+let fixedCosts = [];
+try { fixedCosts = JSON.parse(store.get("trajet_fixed") || "[]") || []; } catch (e) { fixedCosts = []; }
+let odometers = [];
+try { odometers = JSON.parse(store.get("trajet_odo") || "[]") || []; } catch (e) { odometers = []; }
+const saveFixed = () => store.set("trajet_fixed", JSON.stringify(fixedCosts));
+const saveOdo = () => store.set("trajet_odo", JSON.stringify(odometers));
+
+function kmPerYear() {
+  const pts = odometers.map(o => ({ date: o.date, km: num(o.km) }))
+    .concat(history.filter(h => h.type === "Plein" && h.odo > 0)
+      .map(h => ({ date: h.date, km: h.odo })))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (pts.length >= 2) {
+    const days = (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) / 86400000;
+    const km = num(pts[pts.length - 1].km) - num(pts[0].km);
+    if (days >= 7 && km > 0) return { val: km / days * 365, source: "relevés compteur" };
+  }
+  const man = num(el("fdKmYear").value);
+  if (man > 0) return { val: man, source: "valeur manuelle" };
+  return null;
+}
+function fixedAnnualPart(f) {
+  const a = num(f.amount);
+  if (!(a > 0)) return 0;
+  if (f.monthly) return a * 12; // dépense mensuelle récurrente
+  const months = Math.max(1, Math.round(num(f.months) || (num(f.years) || 1) * 12));
+  const now = Date.now();
+  const start = f.date ? new Date(f.date).getTime() : NaN;
+  if (!isNaN(start) && (now < start || now > start + months * 30.4375 * 86400000)) return 0; // hors période
+  return a * 12 / months;
+}
+function fixedPerKm() {
+  const kmy = kmPerYear();
+  if (!kmy) return null;
+  let annual = 0;
+  fixedCosts.forEach(f => { annual += fixedAnnualPart(f); });
+  if (annual <= 0) return null;
+  return { perKm: annual / kmy.val, annual: annual, kmy: kmy };
+}
+function renderFixed() {
+  const now = Date.now();
+  const fs = fixedCosts.slice().sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da; // date décroissante
+  });
+  el("fixedList").innerHTML = fs.map(f => {
+    let sub;
+    const a = num(f.amount);
+    if (f.monthly) {
+      sub = fmt(a) + " · par mois (récurrente)";
+      if (f.date) sub += " · depuis le " + new Date(f.date).toLocaleDateString("fr-FR");
+    } else {
+      const months = Math.max(1, Math.round(num(f.months) || (num(f.years) || 1) * 12));
+      const start = f.date ? new Date(f.date).getTime() : NaN;
+      const fin = new Date(start + months * 30.4375 * 86400000);
+      const active = isNaN(start) || (now >= start && now <= start + months * 30.4375 * 86400000);
+      sub = fmt(a) + " · " + fmt1(a * 12 / months) + "/an sur " +
+        (months % 12 === 0 ? (months / 12) + " an(s)" : months + " mois");
+      if (!isNaN(start)) sub += " · du " + new Date(start).toLocaleDateString("fr-FR") +
+        " au " + fin.toLocaleDateString("fr-FR");
+      if (!active) sub += " · <span class=\"badge\">terminée</span>";
+    }
+    return '<div class="hist-item"><div class="left">' +
+      '<div class="date">' + (f.monthly ? "🔁" : "1️⃣") + " " + f.name + '</div>' +
+      '<div class="desc">' + sub + '</div>' +
+    '</div><button class="del" data-fdel="' + f.id + '" title="Supprimer">✕</button></div>';
+  }).join("");
+  const os = odometers.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  el("odoList").innerHTML = os.map(o =>
+    '<div class="hist-item"><div class="left">' +
+      '<div class="date">🛣️ ' + new Date(o.date).toLocaleDateString("fr-FR") + '</div>' +
+      '<div class="desc">' + num(o.km).toLocaleString("fr-FR") + ' km au compteur</div>' +
+    '</div><button class="del" data-odel="' + o.id + '">✕</button></div>').join("");
+  const r = fixedPerKm();
+  if (!r) {
+    el("fixedStatus").textContent = "Ajoute des dépenses + 2 relevés de compteur (ou des km/an manuels) pour obtenir le coût fixe au km.";
+  } else {
+    const lines = fixedCosts.map(f => {
+      const part = fixedAnnualPart(f);
+      return "· " + f.name + " : " + (part > 0
+        ? (part / r.kmy.val).toFixed(3).replace(".", ",") + " €/km (" + fmt(part) + "/an)"
+        : "0 €/km (terminée)");
+    });
+    el("fixedStatus").innerHTML =
+      "<b>Estimation : " + r.perKm.toFixed(3).replace(".", ",") + " €/km</b>" +
+      " — " + fmt(r.annual) + "/an ÷ " + fmt1(r.kmy.val) + " km/an (" + r.kmy.source + ")" +
+      (lines.length ? "<br>" + lines.join("<br>") : "");
+  }
+}
+el("addFixed").addEventListener("click", () => {
+  const name = el("fdName").value.trim();
+  const amount = num(el("fdAmount").value);
+  if (!name || !(amount > 0)) { toast("Nom et montant requis"); return; }
+  const fd = el("fdDate").value;
+  const rawL = Math.max(1, Math.round(num(el("fdYears").value) || 1));
+  const months = el("fdUnit").value === "mois" ? rawL : rawL * 12;
+  fixedCosts.push({ id: Date.now(), name: name, amount: amount,
+    type: "unique",
+    date: fd ? new Date(fd + "T12:00:00").toISOString() : null,
+    years: Math.max(1, Math.ceil(months / 12)),
+    months: months,
+    monthly: el("fdMonthly").checked });
+  el("fdName").value = ""; el("fdAmount").value = ""; el("fdDate").value = "";
+  saveFixed(); renderFixed(); toast("Dépense ajoutée ✔");
+});
+el("addOdo").addEventListener("click", () => {
+  const d = el("odoDate").value;
+  const km = num(el("odoKm").value);
+  if (!d || !(km > 0)) { toast("Date et km requis"); return; }
+  odometers.push({ id: Date.now(), date: new Date(d + "T12:00:00").toISOString(), km: km });
+  el("odoKm").value = "";
+  saveOdo(); renderFixed(); toast("Relevé ajouté ✔");
+});
+el("fixedList").addEventListener("click", (e) => {
+  const id = e.target.dataset.fdel;
+  if (id === undefined) return;
+  const f = fixedCosts.find(x => String(x.id) === String(id));
+  if (!confirm("Supprimer la dépense « " + (f ? f.name : "?") + " » ?")) return;
+  fixedCosts = fixedCosts.filter(f => String(f.id) !== String(id));
+  saveFixed(); renderFixed();
+});
+el("odoList").addEventListener("click", (e) => {
+  const id = e.target.dataset.odel;
+  if (id === undefined) return;
+  const o = odometers.find(x => String(x.id) === String(id));
+  if (!confirm("Supprimer le relevé du " + (o ? new Date(o.date).toLocaleDateString("fr-FR") : "?") + " ?")) return;
+  odometers = odometers.filter(o => String(o.id) !== String(id));
+  saveOdo(); renderFixed();
+});
+el("fdKmYear").addEventListener("input", () => {
+  store.set("trajet_kmYear", el("fdKmYear").value);
+  renderFixed();
+});
+
+/* ---------- Export / Import ---------- */
+el("expData").addEventListener("click", () => {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf("trajet_") === 0) data[k] = store.get(k);
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "frais-trajet-sauvegarde.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("Sauvegarde exportée ✔");
+});
+el("impData").addEventListener("click", () => el("impFile").click());
+el("impFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(String(r.result));
+      const keys = Object.keys(data);
+      let n = 0;
+      keys.forEach(k => {
+        if (k.indexOf("trajet_") === 0 && typeof data[k] === "string") { store.set(k, data[k]); n++; }
+      });
+      if (!n) { toast("Aucune donnée valide dans ce fichier"); return; }
+      toast("Import réussi ✔ Rechargement…");
+      setTimeout(() => location.reload(), 700);
+    } catch (err) { toast("Fichier invalide"); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+
+/* ---------- Version & changelog ---------- */
+const APP_VERSION = "v2.2 bêta";
+const CHANGELOG = [
+  [APP_VERSION + " · 27/10/2026",
+    "Correctif pente : en descente l'économie est plafonnée à −70 % de la conso de base (injection coupée ≈ ralenti), la consommation ne peut plus être quasi nulle sur un trajet descendant · correctif arrêt intermédiaire : les annotations OSRM sont désormais lues sur toutes les jambes de l'itinéraire, la courbe et les litres sont corrects avec un point d'arrêt."],
+  [APP_VERSION + " · 27/10/2026",
+    "Correctif temps réel GPS : un point isolé ne bloque plus le suivi (erreurs interceptées et affichées), relance automatique du signal s'il se fige (timeout ou silence > 60 s), cache GPS toléré 1 s."],
+  ["v2.0 · 27/10/2026",
+    "Édition minimaliste (cliquer le titre ou la date d'un trajet pour modifier, 2 boutons séparés) · arrêt intermédiaire optionnel en mode Adresse · mode Adresse en premier · section « Comment démarrer ? » dans l'Aide · coûts fixes : lissage en mois + coche « dépense mensuelle »."],
+  ["v1.9 · 27/10/2026",
+    "Altitude adaptative selon la vitesse (500 m si < 50 km/h, 1 km si < 70, 2 km au-delà) · pente affichée en temps réel · renommage des trajets · nom automatique « Départ → Arrivée » en mode Temps réel · pied de page (version, licence, contribuer)."],
+  ["v1.8 · 26/10/2026",
+    "Double coût (sans/avec coûts fixes) et totaux de la sélection cochée · tri de l'historique par date de trajet, éditable (date + heure de départ) · suppression de la ligne redondante « Sans coûts fixes » · confirmation avant suppression d'un relevé de compteur."],
+  ["v1.7 · 26/10/2026",
+    "Historique des coûts fixes trié par date décroissante · confirmation avant suppression · suppression du type « Par an » : chaque dépense (assurance incluse) est saisie avec sa date et son lissage sur 1 an ou plus."],
+  ["v1.6 · 26/10/2026",
+    "Titres de tuiles retirés · coûts fixes du véhicule inclus dans tous les calculs affichés · restyling minimaliste + indices d'aide repliables."],
+  ["Versions antérieures",
+    "Calculs Manuel / Itinéraire / Temps réel GPS · pleins et réconciliation · courbe de consommation · météo et vent · poids transporté · coûts fixes · export/import."]
+];
+el("verInfo").addEventListener("click", () => {
+  el("clBody").textContent = CHANGELOG.map(c => c[0] + "\n" + c[1]).join("\n\n");
+  el("clBg").classList.add("show");
+});
+el("clClose").addEventListener("click", () => el("clBg").classList.remove("show"));
+el("clBg").addEventListener("click", (e) => {
+  if (e.target === el("clBg")) el("clBg").classList.remove("show");
+});
+
+/* ---------- Initialisation ---------- */
+const savedConso = store.get("trajet_conso");
+if (savedConso !== null) el("conso").value = savedConso;
+wireToll("toll", "tollParsed");
+wireToll("toll2", "toll2Parsed");
+{ const now = new Date();
+  el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  el("flTime").value = now.toTimeString().slice(0,5);
+  el("odoDate").value = el("flDate").value;
+  el("fdDate").value = el("flDate").value; }
+if (REF_CURVES[currentCurveName]) el("curveName").value = "";
+
+renderSegments();
+renderCurveSelect();
+renderCurveTable();
+renderConds();
+renderHistory();
+reconcile();
+renderDests();
+renderFixed();
+renderLoads();
+if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
+updMassTotal();
+</script>
+</body>
+</html>
+
+
