@@ -142,10 +142,10 @@
 <div class="panel" id="p1">
   <div class="card">
     <div class="seg">
-      <button class="seg-btn active" id="mDistBtn">📏 Distance</button>
-      <button class="seg-btn" id="mRouteBtn">🗺️ Adresse</button>
+      <button class="seg-btn active" id="mRouteBtn">🗺️ Adresse</button>
+      <button class="seg-btn" id="mDistBtn">📏 Distance</button>
     </div>
-    <div id="manualDist">
+    <div id="manualDist" style="display:none;">
     <label for="conso">Conso du véhicule (L/100km)</label>
     <div class="unit"><input id="conso" type="number" inputmode="decimal" step="0.1" min="0" placeholder="6,5"><span>L/100</span></div>
 
@@ -176,13 +176,15 @@
       Ce mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel.
     </details>
     </div>
-    <div id="manualRoute" style="display:none;">
+    <div id="manualRoute">
     <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu)</div>
 
     <label for="from">Lieu de départ</label>
     <input id="from" type="text" list="destList" placeholder="Ex. 20 avenue de Ségur, Paris" autocomplete="off">
     <label for="to">Lieu d'arrivée</label>
     <input id="to" type="text" list="destList" placeholder="Ex. Gare de Lyon, Paris" autocomplete="off">
+    <label for="via">Arrêt intermédiaire (optionnel)</label>
+    <input id="via" type="text" list="destList" placeholder="Ex. Dijon" autocomplete="off">
     <datalist id="destList"></datalist>
 
     <div class="toggle">
@@ -443,8 +445,15 @@
       </div>
       <div>
         <label for="fdYears">Lisser sur</label>
-        <div class="unit"><input id="fdYears" type="number" inputmode="numeric" step="1" min="1" max="10" value="1"><span>an(s)</span></div>
+        <div class="row" style="margin-top:0;">
+          <div><input id="fdYears" type="number" inputmode="numeric" step="1" min="1" max="120" value="1"></div>
+          <div><select id="fdUnit"><option value="ans">an(s)</option><option value="mois">mois</option></select></div>
+        </div>
       </div>
+    </div>
+    <div class="toggle">
+      <span class="tlabel">🔁 Dépense mensuelle (montant par mois, chaque mois)</span>
+      <label class="switch"><input type="checkbox" id="fdMonthly"><span class="slider"></span></label>
     </div>
     <button class="btn blue" id="addFixed">➕ Ajouter</button>
 
@@ -467,8 +476,9 @@
     <details class="info" style="margin-top:8px;">
       <summary>ℹ️ Comment sont calculés les coûts fixes</summary>
       Chaque dépense (assurance, entretien, réparation…) est divisée
-      par son nombre d'années de lissage et comptée seulement entre sa date et la fin
+      par sa durée de lissage (en mois ou en an(s)) et comptée seulement entre sa date et la fin
       de l'amortissement — saisis ton assurance chaque année, lissée sur 1 an.
+      Coche « Dépense mensuelle » pour un montant payé chaque mois (compté 12 mois/an).
       Le tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés
       d'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au
       coût de chaque trajet enregistré.
@@ -504,6 +514,17 @@
 <button class="home-btn" data-acc="pAide">ℹ️ Aide &amp; formules <span class="sub">modèle physique</span></button>
 <div class="panel" id="pAide">
   <div class="card">
+    <details class="info" open>
+      <summary>🚀 Comment démarrer ?</summary>
+      <b>Les 3 modes de calcul (tuile 🛣️ Manuel) :</b><br>
+      • 🗺️ <b>Adresse</b> : départ → arrivée, avec arrêt intermédiaire optionnel. Itinéraire réel, vitesse estimée, pente (altitudes), vent et météo le long du tracé.<br>
+      • 📏 <b>Distance</b> : tu saisis un ou plusieurs sous-trajets en km, avec péage éventuel. Simple, sans Internet.<br>
+      • 📍 <b>Temps réel</b> (tuile GPS) : lance le suivi pendant que tu conduis. Conso instantanée selon ta vitesse, la pente (mesurée par altitude adaptative), le vent et la pluie. Bouton 🎯 pour calibrer la courbe sur ton ordinateur de bord.<br>
+      <b>Suivre sa consommation réelle :</b> enregistre chaque plein dans ⛽ Pleins d'essence (litres, prix au litre, km compteur). Les trajets enregistrés entre deux pleins sont automatiquement réconciliés (badge « ajusté ×k ») : l'estimation est mise à l'échelle de ta consommation réelle.<br>
+      <b>Coûts fixes (assurance, entretien…) :</b> dans 🚗 Mon véhicule, saisis chaque dépense avec sa date et sa durée de lissage — en mois ou en an(s) — ou coche « dépense mensuelle » pour un montant payé chaque mois. Le tout, divisé par tes km/an (relevés de compteur ou valeur manuelle), donne un coût fixe au km ajouté à chaque trajet. Pour l'assurance annuelle : une entrée par an, lissée sur 1 an.<br>
+      <b>Prix et réglages :</b> ⚙️ Préférences (prix du litre, conditions, export/import de sauvegarde).<br>
+      <b>Historique :</b> chaque trajet peut être renommé et daté (ouvre son détail, clique sur le titre ou la date), coché pour la réconciliation, avec totaux sans/avec coûts fixes.
+    </details>
     <details class="info">
       <summary>ℹ️ Les formules utilisées</summary>
       <b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).
@@ -520,8 +541,9 @@
 <div class="toast" id="toast"></div>
 <div class="modal-bg" id="modalBg">
   <div class="modal">
-    <h2 id="mTitle">Détail</h2>
+    <h2 id="mTitle" style="cursor:pointer;" title="Cliquer pour renommer le trajet">Détail</h2>
     <div class="full" id="mFull"></div>
+    <div class="meta" id="mDateLine" style="text-align:left;cursor:pointer;" title="Cliquer pour modifier la date de départ"></div>
     <div class="stats" id="mStats"></div>
     <div id="mDateEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
       <label for="mTripDate" style="margin:0;">📅 Date et heure de départ (utilisées pour le tri de l'historique)</label>
@@ -529,11 +551,12 @@
         <div><input id="mTripDate" type="date"></div>
         <div><input id="mTripTime" type="time"></div>
       </div>
-      <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer</button>
+      <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer la date et l'heure</button>
     </div>
     <div id="mNameEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
       <label for="mTripName" style="margin:0;">🏷️ Nom du trajet (optionnel)</label>
       <input id="mTripName" type="text" placeholder="Départ → Arrivée" style="margin-top:4px;">
+      <button class="btn blue" id="mNameSave" style="margin-top:8px;">💾 Enregistrer le nom</button>
     </div>
     <div class="chart2" id="mChart" style="display:none;"><div id="mChartIn"></div></div>
     <button class="btn blue" id="mClose">Fermer</button>
@@ -547,7 +570,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v1.9 · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.0 · 27/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -1008,9 +1031,12 @@ async function geocode(q) {
   if (!d.length) throw new Error("adresse introuvable : « " + q + " »");
   return [parseFloat(d[0].lon), parseFloat(d[0].lat), d[0].display_name];
 }
-async function getRoute(a, b) {
+async function getRoute(a, b, via) {
+  const pts = [a];
+  if (via) pts.push(via);
+  pts.push(b);
   const url = "https://router.project-osrm.org/route/v1/driving/" +
-    a[0] + "," + a[1] + ";" + b[0] + "," + b[1] +
+    pts.map(p => p[0] + "," + p[1]).join(";") +
     "?overview=full&geometries=geojson&annotations=speed,distance";
   const r = await fetch(url);
   if (!r.ok) throw new Error("serveur OSRM indisponible");
@@ -1151,8 +1177,16 @@ el("calcRoute").addEventListener("click", async () => {
     setStatus("1/4 — Recherche des adresses…");
     const A = await geocode(from);
     const B = await geocode(to);
-    setStatus("✓ Départ : " + A[2] + "\n✓ Arrivée : " + B[2] + "\n2/4 — Itinéraire OSRM…");
-    const route = await getRoute(A, B);
+    const viaQ = el("via").value.trim();
+    let V = null;
+    if (viaQ) {
+      await new Promise(r => setTimeout(r, 1100)); // Nominatim : 1 requête/s max
+      V = await geocode(viaQ);
+      setStatus("✓ Départ : " + A[2] + "\n✓ Arrêt : " + V[2] + "\n✓ Arrivée : " + B[2] + "\n2/4 — Itinéraire OSRM…");
+    } else {
+      setStatus("✓ Départ : " + A[2] + "\n✓ Arrivée : " + B[2] + "\n2/4 — Itinéraire OSRM…");
+    }
+    const route = await getRoute(A, B, V);
     const oneWayKm = route.distance / 1000;
     const coords = route.geometry.coordinates;
     const times = route.legs.reduce((s, l) => s + l.duration, 0);
@@ -1810,18 +1844,36 @@ el("saveBtn2").addEventListener("click", () => {
 
 /* ---------- Détail historique ---------- */
 el("mClose").addEventListener("click", () => el("modalBg").classList.remove("show"));
+el("mTitle").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  el("mNameEdit").style.display = el("mNameEdit").style.display === "none" ? "block" : "none";
+  el("mDateEdit").style.display = "none";
+});
+el("mDateLine").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  el("mDateEdit").style.display = el("mDateEdit").style.display === "none" ? "block" : "none";
+  el("mNameEdit").style.display = "none";
+});
 el("mTripSave").addEventListener("click", () => {
   if (mDateEditId === null) return;
   const h = history.find(x => String(x.id) === String(mDateEditId));
   if (!h) return;
   const v = el("mTripDate").value;
   const t = el("mTripTime").value || "12:00";
-  const nm = el("mTripName").value.trim();
-  h.name = nm || null;
   if (v) h.tripDate = new Date(v + "T" + t + ":00").toISOString();
+  else h.tripDate = null;
   saveHistory();
   renderHistory();
-  toast("Trajet mis à jour ✔");
+  toast("Date et heure de départ mises à jour ✔");
+});
+el("mNameSave").addEventListener("click", () => {
+  if (mDateEditId === null) return;
+  const h = history.find(x => String(x.id) === String(mDateEditId));
+  if (!h) return;
+  h.name = el("mTripName").value.trim() || null;
+  saveHistory();
+  renderHistory();
+  toast("Nom du trajet mis à jour ✔");
 });
 el("modalBg").addEventListener("click", (e) => {
   if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
@@ -1842,30 +1894,37 @@ function openDetail(h) {
     el("mChart").style.display = "none";
     el("mDateEdit").style.display = "none";
     el("mNameEdit").style.display = "none";
+    el("mDateLine").style.display = "none";
     el("modalBg").classList.add("show");
+    mDateEditId = null;
     return;
   }
   el("mTitle").textContent = (h.name ? h.name + " · " : "") + h.mode + " — " + fmt(h.total);
   el("mFull").textContent = h.full || h.desc || "";
   const d = new Date(h.date);
+  el("mDateLine").textContent = "📅 " +
+    (h.tripDate
+      ? "Départ : " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
+        " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " · "
+      : "") +
+    "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
+    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " ✏️";
   const parts = [];
   if (h.fuel != null && h.fuel > 0) parts.push("⛽ Essence : " + fmt(h.fuel) +
     (h.litres ? " (" + fmt1(h.litres) + " L)" : ""));
   if (h.toll > 0) parts.push("🛂 Péage : " + fmt(h.toll));
   if (h.fixed > 0) parts.push("🔧 Coûts fixes véhicule : " + fmt(h.fixed));
   if (parts.length) parts.push("💰 Total : " + fmt(h.total));
-  el("mStats").textContent = "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
-    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
-    (h.tripDate ? " · Départ le " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
-      " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "") +
-    (h.conso ? " · Conso : " + h.conso : "") + (h.desc ? " · " + h.desc : "") +
+  el("mStats").textContent =
+    (h.conso ? "Conso : " + h.conso : "") + (h.desc ? (h.conso ? " · " : "") + h.desc : "") +
     (parts.length ? "\n" + parts.join("\n") : "");
-  el("mDateEdit").style.display = "block";
-  el("mNameEdit").style.display = "block";
+  el("mDateEdit").style.display = "none";
+  el("mNameEdit").style.display = "none";
   mDateEditId = h.id;
   el("mTripDate").value = h.tripDate ? h.tripDate.slice(0, 10) : "";
   el("mTripTime").value = h.tripDate ? h.tripDate.slice(11, 16) : "";
   el("mTripName").value = h.name || "";
+  el("mDateLine").style.display = "block";
   if (h.profile && h.profile.length) {
     buildChart(h.profile, h.oneWayKm, "mChartIn");
     el("mChart").style.display = "block";
@@ -1900,11 +1959,12 @@ function kmPerYear() {
 function fixedAnnualPart(f) {
   const a = num(f.amount);
   if (!(a > 0)) return 0;
-  const yrs = Math.max(1, Math.round(num(f.years) || 1));
+  if (f.monthly) return a * 12; // dépense mensuelle récurrente
+  const months = Math.max(1, Math.round(num(f.months) || (num(f.years) || 1) * 12));
   const now = Date.now();
   const start = f.date ? new Date(f.date).getTime() : NaN;
-  if (!isNaN(start) && (now < start || now > start + yrs * 365.25 * 86400000)) return 0; // hors période
-  return a / yrs;
+  if (!isNaN(start) && (now < start || now > start + months * 30.4375 * 86400000)) return 0; // hors période
+  return a * 12 / months;
 }
 function fixedPerKm() {
   const kmy = kmPerYear();
@@ -1923,16 +1983,23 @@ function renderFixed() {
   });
   el("fixedList").innerHTML = fs.map(f => {
     let sub;
-    const yrs = Math.max(1, Math.round(num(f.years) || 1));
-    const start = f.date ? new Date(f.date).getTime() : NaN;
-    const fin = new Date(start + yrs * 365.25 * 86400000);
-    const active = isNaN(start) || (now >= start && now <= start + yrs * 365.25 * 86400000);
-    sub = fmt(num(f.amount)) + " · " + fmt1(num(f.amount) / yrs) + "/an sur " + yrs + " an(s)";
-    if (!isNaN(start)) sub += " · du " + new Date(start).toLocaleDateString("fr-FR") +
-      " au " + fin.toLocaleDateString("fr-FR");
-    if (!active) sub += " · <span class=\"badge\">terminée</span>";
+    const a = num(f.amount);
+    if (f.monthly) {
+      sub = fmt(a) + " · par mois (récurrente)";
+      if (f.date) sub += " · depuis le " + new Date(f.date).toLocaleDateString("fr-FR");
+    } else {
+      const months = Math.max(1, Math.round(num(f.months) || (num(f.years) || 1) * 12));
+      const start = f.date ? new Date(f.date).getTime() : NaN;
+      const fin = new Date(start + months * 30.4375 * 86400000);
+      const active = isNaN(start) || (now >= start && now <= start + months * 30.4375 * 86400000);
+      sub = fmt(a) + " · " + fmt1(a * 12 / months) + "/an sur " +
+        (months % 12 === 0 ? (months / 12) + " an(s)" : months + " mois");
+      if (!isNaN(start)) sub += " · du " + new Date(start).toLocaleDateString("fr-FR") +
+        " au " + fin.toLocaleDateString("fr-FR");
+      if (!active) sub += " · <span class=\"badge\">terminée</span>";
+    }
     return '<div class="hist-item"><div class="left">' +
-      '<div class="date">1️⃣ ' + f.name + '</div>' +
+      '<div class="date">' + (f.monthly ? "🔁" : "1️⃣") + " " + f.name + '</div>' +
       '<div class="desc">' + sub + '</div>' +
     '</div><button class="del" data-fdel="' + f.id + '" title="Supprimer">✕</button></div>';
   }).join("");
@@ -1963,10 +2030,14 @@ el("addFixed").addEventListener("click", () => {
   const amount = num(el("fdAmount").value);
   if (!name || !(amount > 0)) { toast("Nom et montant requis"); return; }
   const fd = el("fdDate").value;
+  const rawL = Math.max(1, Math.round(num(el("fdYears").value) || 1));
+  const months = el("fdUnit").value === "mois" ? rawL : rawL * 12;
   fixedCosts.push({ id: Date.now(), name: name, amount: amount,
     type: "unique",
     date: fd ? new Date(fd + "T12:00:00").toISOString() : null,
-    years: Math.max(1, Math.round(num(el("fdYears").value) || 1)) });
+    years: Math.max(1, Math.ceil(months / 12)),
+    months: months,
+    monthly: el("fdMonthly").checked });
   el("fdName").value = ""; el("fdAmount").value = ""; el("fdDate").value = "";
   saveFixed(); renderFixed(); toast("Dépense ajoutée ✔");
 });
@@ -2039,9 +2110,11 @@ el("impFile").addEventListener("change", (e) => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v1.9";
+const APP_VERSION = "v2.0";
 const CHANGELOG = [
   [APP_VERSION + " · 27/10/2026",
+    "Édition minimaliste (cliquer le titre ou la date d'un trajet pour modifier, 2 boutons séparés) · arrêt intermédiaire optionnel en mode Adresse · mode Adresse en premier · section « Comment démarrer ? » dans l'Aide · coûts fixes : lissage en mois + coche « dépense mensuelle »."],
+  ["v1.9 · 27/10/2026",
     "Altitude adaptative selon la vitesse (500 m si < 50 km/h, 1 km si < 70, 2 km au-delà) · pente affichée en temps réel · renommage des trajets · nom automatique « Départ → Arrivée » en mode Temps réel · pied de page (version, licence, contribuer)."],
   ["v1.8 · 26/10/2026",
     "Double coût (sans/avec coûts fixes) et totaux de la sélection cochée · tri de l'historique par date de trajet, éditable (date + heure de départ) · suppression de la ligne redondante « Sans coûts fixes » · confirmation avant suppression d'un relevé de compteur."],
