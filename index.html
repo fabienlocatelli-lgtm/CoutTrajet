@@ -120,7 +120,7 @@
 
 <!-- Carte poids transporté (toujours visible) -->
 <div class="card" id="loadCard">
-  <h1>🧳 Poids transporté</h1>
+  <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
   <div class="subtitle">Touche un bouton pour le mettre dans le véhicule</div>
   <div id="loadChips"></div>
   <div id="loadComp" class="meta" style="text-align:left;min-height:1em;"></div>
@@ -134,7 +134,6 @@
     </div>
   </div>
   <div class="meta" id="massTotal"></div>
-  <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info1" title="Effet du poids">i</button></div>
 </div>
 
 <button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">coût de trajet · km ou adresse</span></button>
@@ -166,9 +165,8 @@
       <div class="amount" id="amount">—</div>
       <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
     </div>
-    <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage + coûts fixes au km</div>
+    <div class="formula">Coût = Σ(distances ÷ 100 × conso) × prix du litre + péage + coûts fixes au km <button class="ibtn" data-info="info2" title="Comment ce calcul est fait">i</button></div>
     <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info2" title="Comment ce calcul est fait">i</button></div>
     </div>
     <div id="manualRoute">
     <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu)</div>
@@ -183,7 +181,7 @@
 
     <div class="row">
       <div>
-        <label for="wxDate">Date de départ (optionnel — météo réelle et historique)</label>
+        <label for="wxDate">Date de départ</label>
         <input id="wxDate" type="date">
       </div>
       <div>
@@ -212,11 +210,10 @@
     </div>
     <div class="drawer" id="wxDrawer">
       <div class="toggle" style="margin-top:0;">
-        <span class="tlabel">Météo réelle (Open-Meteo, tous les 10 km)</span>
+        <span class="tlabel">Météo réelle (Open-Meteo, tous les 10 km) <button class="ibtn" data-info="info3" title="Quelques dates fonctionnent ?">i</button></span>
         <label class="switch"><input type="checkbox" id="wxApi"><span class="slider"></span></label>
       </div>
       <div id="wxApiOpts">
-        <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info3" title="Quelques dates fonctionnent ?">i</button></div>
       </div>
       <div id="wxManualOpts">
         <label for="wxWind">Vent (simplifié)</label>
@@ -236,7 +233,7 @@
       </div>
     </div>
 
-    <button class="btn blue" id="calcRoute">🚗 Calculer le coût</button>
+    <button class="btn blue" id="calcRoute">🚗 Calculer le coût <span class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</span></button>
     <div class="status" id="status"></div>
 
     <div class="result" id="result2" style="display:none;">
@@ -252,13 +249,11 @@
         <span><span class="dot" style="background:#4ade80"></span>Altitude (m)</span>
       </div>
     </div>
-
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</button></div>
     <button class="btn blue" id="saveBtn2" style="display:none;">💾 Enregistrer ce calcul</button>
     </div>
   </div>
 </div>
-<button class="home-btn" data-acc="p5">📍 Temps réel (bêta) <span class="sub">GPS</span></button>
+<button class="home-btn" data-acc="p5">📍 Temps réel (bêta) <span class="ibtn" data-info="info7" title="Comment ce calcul est fait">i</span><span class="sub">GPS</span></button>
 <div class="panel" id="p5">
   <div class="card">
     <div class="subtitle">GPS (bêta) + votre courbe — Chrome conseillé, écran gardé allumé, localisation activée</div>
@@ -269,8 +264,6 @@
       <button class="btn gray" id="gpsReset" style="margin-top:0; display:none;" title="Réinitialiser le trajet">↺</button>
     </div>
     <div class="status" id="gpsStatus"></div>
-
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info5" title="La distance reste à 0 ?">i</button></div>
 
     <div class="result" id="gpsLive" style="display:none;">
       <div class="detail" style="margin:0;">Consommation instantanée</div>
@@ -290,14 +283,12 @@
       <span class="tlabel">🌤️ Météo réelle (mise à jour tous les 10 km)</span>
       <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
     </div>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info6" title="Météo en temps réel">i</button></div>
 
     <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
     <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
       le point s'ajoute à votre courbe.</div>
 
     <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info7" title="Comment ce calcul est fait">i</button></div>
   </div>
 </div>
 <button class="home-btn" data-acc="pPlein">⛽ Pleins d'essence <span class="sub">saisie, conso réelle</span></button>
@@ -333,12 +324,11 @@
       </div>
     </div>
     <div class="toggle">
-      <span class="tlabel">Je n'ai pas fait le plein (réservoir non rempli)</span>
+      <span class="tlabel">Je n'ai pas fait le plein (réservoir non rempli) <button class="ibtn" data-info="info8" title="Réconciliation avec l’historique">i</button></span>
       <label class="switch"><input type="checkbox" id="flNotFull"><span class="slider"></span></label>
     </div>
     <button class="btn blue" id="addPlein">➕ Ajouter ce plein</button>
     <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info8" title="Réconciliation avec l'historique">i</button></div>
     <div id="consoChartBox" style="display:none; margin-top:12px; background:#0b0f17; border-radius:10px; padding:8px;">
       <div id="consoChart"></div>
       <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
@@ -396,7 +386,7 @@
     <button class="btn gray" id="adjustCurve">🎯 Ajuster toute la courbe à ce point</button>
     <div class="hint">Toute la courbe est mise à l'échelle pour passer par votre point. Les autres points gardent la même forme.</div>
 
-    <h2>🔧 Coûts fixes du véhicule</h2>
+    <h2>🔧 Coûts fixes du véhicule <button class="ibtn" data-info="info9" title="Comment sont calculés les coûts fixes">i</button></h2>
     <div id="fixedList"></div>
     <div class="row">
       <div>
@@ -443,7 +433,6 @@
     <label for="fdKmYear" style="margin-top:10px;">Ou km/an manuels (utilisé s'il n'y a pas 2 relevés)</label>
     <div class="unit"><input id="fdKmYear" type="number" inputmode="decimal" step="500" min="0" placeholder="12000"><span>km/an</span></div>
     <div class="meta" id="fixedStatus" style="text-align:left;"></div>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info9" title="Comment sont calculés les coûts fixes">i</button></div>
   </div>
 </div>
 <button class="home-btn" data-acc="pPref">⚙️ Préférences <span class="sub">prix, conditions, sauvegarde</span></button>
@@ -459,20 +448,21 @@
     <button class="btn gray" id="addCond">+ Ajouter une condition</button>
     <div class="hint">Ex. « remorque » 130 %. Multiplicateurs appliqués aux modes Itinéraire et Temps réel.</div>
 
-    <h2>💾 Sauvegarde des données</h2>
+    <h2>💾 Sauvegarde des données <button class="ibtn" data-info="info10" title="Export / import">i</button></h2>
     <div class="row">
       <button class="btn blue" id="expData">⬇️ Exporter</button>
       <button class="btn blue" id="impData">⬆️ Importer</button>
       <input id="impFile" type="file" accept="application/json,.json" style="display:none">
     </div>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info10" title="Export / import">i</button></div>
   </div>
 </div>
 <button class="home-btn" data-acc="pAide">ℹ️ Aide &amp; formules <span class="sub">modèle physique</span></button>
 <div class="panel" id="pAide">
   <div class="card">
     <button class="btn gray" data-info="info11" style="margin-top:8px;">🚀 Comment démarrer ?</button>
-    <div style="text-align:center;margin-top:8px;"><button class="ibtn" data-info="info12" title="Les formules utilisées">i</button></div>
+    <button class="btn gray" data-info="info12" style="margin-top:8px;">📐 Les formules utilisées</button>
+    <button class="btn gray" data-info="info5" style="margin-top:8px;">📍 GPS : la distance reste à 0 ?</button>
+    <button class="btn gray" data-info="info6" style="margin-top:8px;">🌤️ GPS : météo en temps réel</button>
   </div>
 </div>
 
@@ -508,7 +498,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.4 bêta · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.5 bêta · 27/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -2129,9 +2119,11 @@ el("impFile").addEventListener("change", (e) => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.4 bêta";
+const APP_VERSION = "v2.5 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 27/10/2026",
+    "Ergonomie : date de départ pré-remplie avec le jour (libellé simplifié) · boutons « i » placés en fin de ligne (Poids transporté, Météo réelle, Calculer le coût, Coûts fixes, Sauvegarde, Pleins) · le « i » du mode Temps réel est dans son titre · les aides GPS (distance à 0, météo en temps réel) rejoignent la section Aide."],
+  ["v2.4 bêta · 27/10/2026",
     "Itinéraire : date et heure de départ toujours visibles (servent à la météo réelle et à la date du trajet enregistré) · arrêts intermédiaires multiples (bouton « + ») · Temps réel (bêta) : Chrome conseillé et écran gardé allumé, bouton ↺ Réinitialiser · infobulles remplacées par des boutons « i » discrets ouvrant une fenêtre d'explication."],
   ["v2.3 bêta · 27/10/2026",
     "GPS temps réel : retour à la position fraîche obligatoire (cache 0 s, comme avant la v2.1), message explicite quand la précision est insuffisante pour mesurer, aide « La distance reste à 0 ? » dans le panneau Temps réel."],
@@ -2166,12 +2158,13 @@ const INFOS = {"info1":["Effet du poids","Le total alimente l'effet de la pente 
 document.addEventListener("click", (e) => {
   const b = e.target && e.target.closest ? e.target.closest("[data-info]") : null;
   if (!b) return;
+  e.stopPropagation(); // le « i » n'active pas le bouton parent (capture)
   const inf = INFOS[b.dataset.info];
   if (!inf) return;
   el("iTitle").textContent = inf[0];
   el("iBody").innerHTML = inf[1];
   el("infoBg").classList.add("show");
-});
+}, true);
 el("iClose").addEventListener("click", () => el("infoBg").classList.remove("show"));
 el("infoBg").addEventListener("click", (e) => {
   if (e.target === el("infoBg")) el("infoBg").classList.remove("show");
@@ -2186,7 +2179,8 @@ wireToll("toll2", "toll2Parsed");
   el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   el("flTime").value = now.toTimeString().slice(0,5);
   el("odoDate").value = el("flDate").value;
-  el("fdDate").value = el("flDate").value; }
+  el("fdDate").value = el("flDate").value;
+  el("wxDate").value = el("flDate").value; }
 if (REF_CURVES[currentCurveName]) el("curveName").value = "";
 
 renderSegments();
