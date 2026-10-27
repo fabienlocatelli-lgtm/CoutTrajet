@@ -570,7 +570,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.0 · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.1 bêta · 27/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -1370,6 +1370,7 @@ document.addEventListener("visibilitychange", () => {
 
 /* ---------- Niveau 3 : temps réel GPS ---------- */
 let watchId = null;
+let gpsWatchdog = null;
 let gpsTrip = null;
 const gStatus = (m, err) => { el("gpsStatus").textContent = m; el("gpsStatus").className = "status" + (err ? " err" : ""); };
 
@@ -1409,7 +1410,11 @@ el("gpsStart").addEventListener("click", () => {
   el("gpsCalib").style.display = "block";
   keepAwakeOn();
   gStatus("En attente du signal GPS…");
-  watchId = navigator.geolocation.watchPosition((pos) => {
+  const GPS_OPTS = { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 };
+  function onGpsPos(pos) {
+    try {
+    if (!pos.coords || typeof pos.coords.latitude !== "number" || typeof pos.coords.longitude !== "number" ||
+      !isFinite(pos.coords.latitude) || !isFinite(pos.coords.longitude)) return; // point invalide → ignoré
     const v = pos.coords.speed !== null ? pos.coords.speed * 3.6 : null;
     const acc = pos.coords.accuracy || 0;
     const here = [pos.coords.longitude, pos.coords.latitude];
@@ -1418,8 +1423,10 @@ el("gpsStart").addEventListener("click", () => {
 
     if (gpsTrip.last && acc < 30 && pos.coords.speed !== null && pos.coords.speed > 1) {
       const d = haversine(gpsTrip.last, here) / 1000; // haversine → mètres, compteur → km
-      gpsTrip.dist += d;
-      if (d > 0.003) gpsTrip.lastCap = bearing(gpsTrip.last, here);
+      if (isFinite(d) && d >= 0) {
+        gpsTrip.dist += d;
+        if (d > 0.003) gpsTrip.lastCap = bearing(gpsTrip.last, here);
+      }
     }
     if (acc < 50) gpsTrip.last = here;
     if (acc < 50 && !gpsTrip.first) gpsTrip.first = here;
@@ -1492,15 +1499,37 @@ el("gpsStart").addEventListener("click", () => {
       ? "Sans coûts fixes : " + fmt(gpsTrip.litres * price) : "";
     el("gAvg").textContent = avg ? fmt1(avg) + " L/100" : "—";
     el("saveBtn3").style.display = "block";
-  }, (err) => {
+    } catch (e) {
+      gStatus("Point GPS ignoré (" + (e && e.message ? e.message : "erreur") + ")", true);
+    }
+  }
+  function onGpsErr(err) {
     gStatus("Erreur de localisation : " + err.message +
       (err.code === 1 ? " (autorisation refusée)" : ""), true);
-  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    // TIMEOUT (code 3) : sur certains navigateurs le watch se fige après le 1er point → relance
+    if (err.code === 3 && watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
+    }
+  }
+  // Watchdog : si aucun nouveau point pendant 60 s, on ré-enregistre le watch
+  let gpsPrevSamples = 0;
+  gpsWatchdog = setInterval(() => {
+    if (watchId === null || !gpsTrip) { clearInterval(gpsWatchdog); gpsWatchdog = null; return; }
+    if (gpsTrip.samples === gpsPrevSamples) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
+      gStatus("Signal GPS relancé…");
+    }
+    gpsPrevSamples = gpsTrip.samples;
+  }, 60000);
+  watchId = navigator.geolocation.watchPosition(onGpsPos, onGpsErr, GPS_OPTS);
 });
 
 el("gpsStop").addEventListener("click", () => {
   if (watchId !== null) navigator.geolocation.clearWatch(watchId);
   watchId = null;
+  if (gpsWatchdog) { clearInterval(gpsWatchdog); gpsWatchdog = null; }
   keepAwakeOff();
   el("gpsStart").style.display = "block";
   el("gpsStop").style.display = "none";
@@ -2110,9 +2139,11 @@ el("impFile").addEventListener("change", (e) => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.0";
+const APP_VERSION = "v2.1 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 27/10/2026",
+    "Correctif temps réel GPS : un point isolé ne bloque plus le suivi (erreurs interceptées et affichées), relance automatique du signal s'il se fige (timeout ou silence > 60 s), cache GPS toléré 1 s."],
+  ["v2.0 · 27/10/2026",
     "Édition minimaliste (cliquer le titre ou la date d'un trajet pour modifier, 2 boutons séparés) · arrêt intermédiaire optionnel en mode Adresse · mode Adresse en premier · section « Comment démarrer ? » dans l'Aide · coûts fixes : lissage en mois + coche « dépense mensuelle »."],
   ["v1.9 · 27/10/2026",
     "Altitude adaptative selon la vitesse (500 m si < 50 km/h, 1 km si < 70, 2 km au-delà) · pente affichée en temps réel · renommage des trajets · nom automatique « Départ → Arrivée » en mode Temps réel · pied de page (version, licence, contribuer)."],
