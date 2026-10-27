@@ -529,12 +529,27 @@
         <div><input id="mTripDate" type="date"></div>
         <div><input id="mTripTime" type="time"></div>
       </div>
-      <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer la date et l'heure</button>
+      <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer</button>
+    </div>
+    <div id="mNameEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
+      <label for="mTripName" style="margin:0;">🏷️ Nom du trajet (optionnel)</label>
+      <input id="mTripName" type="text" placeholder="Départ → Arrivée" style="margin-top:4px;">
     </div>
     <div class="chart2" id="mChart" style="display:none;"><div id="mChartIn"></div></div>
     <button class="btn blue" id="mClose">Fermer</button>
   </div>
 </div>
+<div class="modal-bg" id="clBg">
+  <div class="modal">
+    <h2>📜 Historique des mises à jour</h2>
+    <div class="full" id="clBody"></div>
+    <button class="btn gray" id="clClose">Fermer</button>
+  </div>
+</div>
+<footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v1.9 · 27/10/2026</span><br>
+  Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
+</footer>
 </div>
 <script>
 "use strict";
@@ -1340,10 +1355,18 @@ async function rtWeather(lat, lon) {
   return { wind: c.wind_speed_10m || 0, dir: c.wind_direction_10m || 0,
     rain: c.rain || c.precipitation || 0 };
 }
+async function rtPlace(lat, lon) { // lieu le plus proche (OpenStreetMap)
+  const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=fr&lat=" +
+    lat.toFixed(5) + "&lon=" + lon.toFixed(5));
+  if (!r.ok) throw new Error("lieu indisponible");
+  const j = await r.json();
+  const a = j.address || {};
+  return a.village || a.town || a.city || a.city_district || a.municipality || a.county || j.name || null;
+}
 
 el("gpsStart").addEventListener("click", () => {
   if (!navigator.geolocation) { gStatus("La localisation n'est pas disponible dans ce navigateur.", true); return; }
-  gpsTrip = { dist: 0, litres: 0, last: null, prevDist: 0, t0: Date.now(), samples: 0,
+  gpsTrip = { dist: 0, litres: 0, last: null, first: null, prevDist: 0, t0: Date.now(), samples: 0,
     altSamples: [], lastAltFetch: -99, lastWxFetch: -99, wx: null, lastCap: 0, lastV: 0,
     lastConso: null, moveHist: [] };
   el("gpsStart").style.display = "none";
@@ -1365,9 +1388,11 @@ el("gpsStart").addEventListener("click", () => {
       if (d > 0.003) gpsTrip.lastCap = bearing(gpsTrip.last, here);
     }
     if (acc < 50) gpsTrip.last = here;
+    if (acc < 50 && !gpsTrip.first) gpsTrip.first = here;
 
-    // Dénivelé : altitude tous les 2 km
-    if (gpsTrip.dist - gpsTrip.lastAltFetch > 2) {
+    // Dénivelé : altitude adaptative selon la vitesse (< 50 km/h : 500 m, < 70 : 1 km, sinon 2 km)
+    const altStep = v === null ? 1 : (v < 50 ? 0.5 : (v < 70 ? 1 : 2));
+    if (gpsTrip.dist - gpsTrip.lastAltFetch > altStep) {
       gpsTrip.lastAltFetch = gpsTrip.dist;
       rtElevation(here[1], here[0]).then(alt => {
         gpsTrip.altSamples.push({ d: gpsTrip.dist, alt });
@@ -1404,7 +1429,8 @@ el("gpsStart").addEventListener("click", () => {
       gpsTrip.lastV = v;
       el("gConso").textContent = fmt1(c) + " L/100";
       el("gSpeed").textContent = Math.round(v) + " km/h";
-      el("gBreak").textContent = "base " + fmt1(base) + (grade ? " · pente " + (grEff >= 0 ? "+" : "") + fmt1(grEff) : "") +
+      el("gBreak").textContent = "base " + fmt1(base) +
+        (grade ? " · pente " + (grade * 100).toFixed(1).replace(".", ",") + "% (" + (grEff >= 0 ? "+" : "") + fmt1(grEff) + ")" : "") +
         (windAx ? " · vent " + (wEff >= 0 ? "+" : "") + fmt1(wEff) : "") +
         (rainMult > 1 ? " · pluie ×" + rainMult : "");
     } else if (v !== null && v < 3) {
@@ -1466,21 +1492,35 @@ el("gpsCalib").addEventListener("click", () => {
   toast("Point d'étalonnage ajouté : " + vNow + " km/h → " + c + " L/100 ✔");
 });
 
-el("saveBtn3").addEventListener("click", () => {
+el("saveBtn3").addEventListener("click", async () => {
   if (!gpsTrip || gpsTrip.dist < 0.1) { alert("Aucun trajet mesuré."); return; }
   const price = getPrice();
   const avg = gpsTrip.litres / gpsTrip.dist * 100;
   const mins = Math.round((Date.now() - gpsTrip.t0) / 60000);
   const fpk3 = fixedPerKm();
   const fixed3 = fpk3 ? fpk3.perKm * gpsTrip.dist : 0;
+  let name = null;
+  const s = gpsTrip.first, e = gpsTrip.last;
+  if (s && e) {
+    toast("Recherche des lieux de départ et d'arrivée…");
+    name = s[1].toFixed(3).replace(".", ",") + " , " + s[0].toFixed(3).replace(".", ",") +
+      " → " + e[1].toFixed(3).replace(".", ",") + " , " + e[0].toFixed(3).replace(".", ",");
+    try {
+      const a = await rtPlace(s[1], s[0]);
+      await new Promise(r => setTimeout(r, 1100)); // Nominatim : 1 requête/s max
+      const b = await rtPlace(e[1], e[0]);
+      if (a || b) name = (a || "Départ") + " → " + (b || "Arrivée");
+    } catch (err) { /* garde les coordonnées GPS */ }
+  }
   saveEntry("Temps réel",
     fmt1(gpsTrip.dist) + " km en " + mins + " min",
     (price > 0 ? gpsTrip.litres * price : 0) + fixed3,
     fmt1(avg) + " L/100 (moyenne GPS)",
     { full: "Trajet GPS en temps réel\n" + fmt1(gpsTrip.dist) + " km · " + fmt1(gpsTrip.litres) + " L\n" +
-      (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné"),
+      (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné") +
+      (name ? "\n" + name + " (lieux © OpenStreetMap)" : ""),
       litres: gpsTrip.litres, fuel: price > 0 ? gpsTrip.litres * price : null, toll: 0,
-      fixed: fixed3, dist: gpsTrip.dist });
+      fixed: fixed3, dist: gpsTrip.dist, name: name });
 });
 
 /* ---------- Historique partagé (trajets + pleins) ---------- */
@@ -1628,6 +1668,7 @@ function renderHistory() {
             ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
               " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
             : dateTxt) + ' <span class="mode">· ' + h.mode + '</span></div>' +
+          (h.name ? '<div class="desc" style="color:#e2e8f0;">' + h.name + '</div>' : '') +
           '<div class="desc">' + (h.desc || "") + badge + '</div>' +
           (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
         '</div>' +
@@ -1724,7 +1765,7 @@ function saveEntry(mode, desc, total, conso, extra) {
     litres: extra.litres || null, fuel: extra.fuel || null, toll: extra.toll || 0,
     fixed: extra.fixed || 0, dist: extra.dist || 0, compte: true, adjusted: null,
     full: extra.full || "", profile: extra.profile || null,
-    oneWayKm: extra.oneWayKm || 0 });
+    oneWayKm: extra.oneWayKm || 0, name: extra.name || null, tripDate: extra.tripDate || null });
   saveHistory();
   reconcile();
   renderHistory();
@@ -1774,12 +1815,13 @@ el("mTripSave").addEventListener("click", () => {
   const h = history.find(x => String(x.id) === String(mDateEditId));
   if (!h) return;
   const v = el("mTripDate").value;
-  if (!v) { toast("Choisis une date de trajet"); return; }
   const t = el("mTripTime").value || "12:00";
-  h.tripDate = new Date(v + "T" + t + ":00").toISOString();
+  const nm = el("mTripName").value.trim();
+  h.name = nm || null;
+  if (v) h.tripDate = new Date(v + "T" + t + ":00").toISOString();
   saveHistory();
   renderHistory();
-  toast("Date et heure de départ mises à jour ✔");
+  toast("Trajet mis à jour ✔");
 });
 el("modalBg").addEventListener("click", (e) => {
   if (e.target === el("modalBg")) el("modalBg").classList.remove("show");
@@ -1799,10 +1841,11 @@ function openDetail(h) {
       (h.odo > 0 ? " · Compteur : " + h.odo.toLocaleString("fr-FR") + " km" : "");
     el("mChart").style.display = "none";
     el("mDateEdit").style.display = "none";
+    el("mNameEdit").style.display = "none";
     el("modalBg").classList.add("show");
     return;
   }
-  el("mTitle").textContent = h.mode + " — " + fmt(h.total);
+  el("mTitle").textContent = (h.name ? h.name + " · " : "") + h.mode + " — " + fmt(h.total);
   el("mFull").textContent = h.full || h.desc || "";
   const d = new Date(h.date);
   const parts = [];
@@ -1818,9 +1861,11 @@ function openDetail(h) {
     (h.conso ? " · Conso : " + h.conso : "") + (h.desc ? " · " + h.desc : "") +
     (parts.length ? "\n" + parts.join("\n") : "");
   el("mDateEdit").style.display = "block";
+  el("mNameEdit").style.display = "block";
   mDateEditId = h.id;
   el("mTripDate").value = h.tripDate ? h.tripDate.slice(0, 10) : "";
   el("mTripTime").value = h.tripDate ? h.tripDate.slice(11, 16) : "";
+  el("mTripName").value = h.name || "";
   if (h.profile && h.profile.length) {
     buildChart(h.profile, h.oneWayKm, "mChartIn");
     el("mChart").style.display = "block";
@@ -1991,6 +2036,29 @@ el("impFile").addEventListener("change", (e) => {
     e.target.value = "";
   };
   r.readAsText(f);
+});
+
+/* ---------- Version & changelog ---------- */
+const APP_VERSION = "v1.9";
+const CHANGELOG = [
+  [APP_VERSION + " · 27/10/2026",
+    "Altitude adaptative selon la vitesse (500 m si < 50 km/h, 1 km si < 70, 2 km au-delà) · pente affichée en temps réel · renommage des trajets · nom automatique « Départ → Arrivée » en mode Temps réel · pied de page (version, licence, contribuer)."],
+  ["v1.8 · 26/10/2026",
+    "Double coût (sans/avec coûts fixes) et totaux de la sélection cochée · tri de l'historique par date de trajet, éditable (date + heure de départ) · suppression de la ligne redondante « Sans coûts fixes » · confirmation avant suppression d'un relevé de compteur."],
+  ["v1.7 · 26/10/2026",
+    "Historique des coûts fixes trié par date décroissante · confirmation avant suppression · suppression du type « Par an » : chaque dépense (assurance incluse) est saisie avec sa date et son lissage sur 1 an ou plus."],
+  ["v1.6 · 26/10/2026",
+    "Titres de tuiles retirés · coûts fixes du véhicule inclus dans tous les calculs affichés · restyling minimaliste + indices d'aide repliables."],
+  ["Versions antérieures",
+    "Calculs Manuel / Itinéraire / Temps réel GPS · pleins et réconciliation · courbe de consommation · météo et vent · poids transporté · coûts fixes · export/import."]
+];
+el("verInfo").addEventListener("click", () => {
+  el("clBody").textContent = CHANGELOG.map(c => c[0] + "\n" + c[1]).join("\n\n");
+  el("clBg").classList.add("show");
+});
+el("clClose").addEventListener("click", () => el("clBg").classList.remove("show"));
+el("clBg").addEventListener("click", (e) => {
+  if (e.target === el("clBg")) el("clBg").classList.remove("show");
 });
 
 /* ---------- Initialisation ---------- */
