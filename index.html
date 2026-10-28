@@ -120,6 +120,11 @@
 <body>
 <div class="wrap">
 
+<div id="demoBar" style="display:none;background:#b45309;color:#fff;padding:8px 12px;margin:12px;text-align:center;font-size:.8rem;font-weight:600;border-radius:10px;">
+  🧪 MODE DÉMO — données d'exemple. Tes vraies données sont sauvegardées à part.
+  <button id="demoExit" style="margin-left:8px;padding:4px 10px;border:none;border-radius:8px;background:#fff;color:#b45309;font-weight:700;cursor:pointer;">Quitter la démo</button>
+</div>
+
 <!-- Carte poids transporté (toujours visible) -->
 <div class="card" id="loadCard">
   <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
@@ -474,6 +479,7 @@
     <button class="btn gray" data-info="info6" style="margin-top:8px;">🌤️ GPS : météo en temps réel</button>
     <button class="btn gray" data-info="info13" style="margin-top:8px;">📥 GPX : importer une trace</button>
     <button class="btn gray" data-info="info14" style="margin-top:8px;">🌍 kg CO₂e : le détail du calcul</button>
+    <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
   </div>
 </div>
 
@@ -547,7 +553,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.11 bêta · 28/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.12 bêta · 28/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2520,9 +2526,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.11 bêta";
+const APP_VERSION = "v2.12 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
+    "🧪 Mode démonstration dans Aide & formules : charge des données d'exemple (trajets, pleins, réconciliation ×k, CO₂e, coûts fixes) sans toucher aux tiennes — bandeau permanent et bouton « Quitter la démo » pour tout restaurer."],
+  ["v2.11 bêta · 28/10/2026",
     "🌍 Réconciliation : le CO₂e suit le facteur k (CO₂e ajusté = CO₂e estimé × k) — affichage de l'historique, totaux de la sélection et détail du trajet ; aide « Réconciliation » mise à jour."],
   ["v2.10 bêta · 28/10/2026",
     "Historique : CO₂e placé sous le « sans fixes » · Aide : bouton « Réconciliation avec les pleins » (le mécanisme n'était plus accessible) avec le détail du calcul (k, conditions, badge)."],
@@ -2582,6 +2590,83 @@ el("iClose").addEventListener("click", () => el("infoBg").classList.remove("show
 el("infoBg").addEventListener("click", (e) => {
   if (e.target === el("infoBg")) el("infoBg").classList.remove("show");
 });
+
+/* ---------- Mode démonstration ---------- */
+function demoKeys() {
+  const ks = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf("trajet_") === 0 && k !== "trajet_demoBackup" && k !== "trajet_demoActive") ks.push(k);
+  }
+  return ks;
+}
+function enterDemo() {
+  const backup = {};
+  demoKeys().forEach(k => { backup[k] = localStorage.getItem(k); localStorage.removeItem(k); });
+  store.set("trajet_demoBackup", JSON.stringify(backup));
+  const iso = (dAgo, hh, mm) => {
+    const t = new Date(Date.now() - dAgo * 86400000);
+    t.setHours(hh, mm, 0, 0);
+    return t.toISOString();
+  };
+  // Réglages d'exemple
+  store.set("trajet_price", "1.82");
+  store.set("trajet_conso", "6.5");
+  store.set("trajet_fuelType", "essence");
+  store.set("trajet_massVeh", "1250");
+  store.set("trajet_cdA", "0.65");
+  store.set("trajet_kmYear", "12000");
+  // Coûts fixes d'exemple (~0,088 €/km avec 12 000 km/an)
+  store.set("trajet_fixed", JSON.stringify([
+    { id: 101, name: "Assurance auto", amount: 720, type: "unique",
+      date: iso(70, 9, 0), years: 1, months: 12, monthly: false },
+    { id: 102, name: "Entretien (vidange, pneus)", amount: 340, type: "unique",
+      date: iso(40, 10, 30), years: 1, months: 12, monthly: false }
+  ]));
+  // Historique d'exemple : 2 pleins complets encadrent 3 trajets → réconciliation ×k,
+  // puis 1 trajet après le dernier plein (non ajusté). Essence : 2,79 kg CO₂e/L.
+  const fpk = 1060 / 12000;
+  const trip = (id, dAgo, hh, mm, desc, dist, conso, litres, price, toll) => ({
+    id: id, date: iso(dAgo, hh, mm), mode: "Manuel", desc: desc,
+    total: litres * price + toll + fpk * dist, conso: conso,
+    litres: litres, fuel: litres * price, toll: toll, co2: litres * 2.79,
+    fixed: fpk * dist, dist: dist, compte: true, adjusted: null,
+    full: "", profile: null, oneWayKm: 0, name: null, tripDate: null });
+  store.set("trajet_history", JSON.stringify([
+    { id: 1, date: iso(14, 18, 10), type: "Plein", liters: 39.5, priceL: 1.78,
+      notFull: false, odo: 45210, desc: "Plein 39,5 L à 1,78 €/L · 45 210 km" },
+    trip(2, 12, 9, 15, "Lyon → Marseille (A7)", 315, "6,9 L/100", 21.74, 1.78, 12.30),
+    trip(3, 9, 19, 0, "Domicile ↔ bureau (4 allers-retours)", 96, "6,2 L/100", 5.95, 1.78, 0),
+    trip(4, 8, 11, 20, "Courses hypermarché", 22, "6,5 L/100", 1.43, 1.78, 0),
+    { id: 5, date: iso(7, 18, 40), type: "Plein", liters: 31.0, priceL: 1.82,
+      notFull: false, odo: 45650, desc: "Plein 31,0 L à 1,82 €/L · 45 650 km" },
+    trip(6, 4, 8, 30, "Weekend dans les Alpes", 186, "7,4 L/100", 13.76, 1.82, 0)
+  ]));
+  store.set("trajet_demoActive", "1");
+  location.reload();
+}
+function exitDemo() {
+  let backup = {};
+  try { backup = JSON.parse(store.get("trajet_demoBackup") || "{}") || {}; } catch (e) { backup = {}; }
+  demoKeys().forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  Object.keys(backup).forEach(k => store.set(k, backup[k]));
+  try {
+    localStorage.removeItem("trajet_demoBackup");
+    localStorage.removeItem("trajet_demoActive");
+  } catch (e) {}
+  location.reload();
+}
+el("demoBtn").addEventListener("click", () => {
+  if (store.get("trajet_demoActive")) { exitDemo(); return; }
+  if (confirm("Charger les données d'exemple ?\nTes données actuelles sont mises de côté et seront restaurées en quittant la démo.")) enterDemo();
+});
+el("demoExit").addEventListener("click", () => {
+  if (confirm("Quitter la démo et restaurer tes données ?")) exitDemo();
+});
+if (store.get("trajet_demoActive")) {
+  el("demoBar").style.display = "block";
+  el("demoBtn").textContent = "🧪 Quitter la démo (restaurer mes données)";
+}
 
 /* ---------- Initialisation ---------- */
 const savedConso = store.get("trajet_conso");
