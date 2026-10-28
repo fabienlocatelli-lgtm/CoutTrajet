@@ -556,7 +556,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.15 bêta · 28/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.16 bêta · 28/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -573,6 +573,7 @@ const el = (id) => document.getElementById(id);
 const num = (v) => parseFloat(String(v).replace(",", "."));
 const fmt = (x) => x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const fmt1 = (x) => x.toFixed(1).replace(".", ",");
+const fmt2 = (x) => x.toFixed(2).replace(".", ",");
 function toast(msg) {
   const t = el("toast");
   t.textContent = msg;
@@ -1393,9 +1394,9 @@ el("calcRoute").addEventListener("click", async () => {
     if (toll > 0) detail += " · péage " + fmt(toll);
     if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
     detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
-      " · pente " + (Lslope >= 0 ? "+" : "") + fmt1(Lslope * distMult) + " L" +
-      " · vent " + (Lwind >= 0 ? "+" : "") + fmt1(Lwind * distMult) + " L" +
-      " · pluie +" + fmt1(LrainExtra * distMult) + " L";
+      " · pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope * distMult) + " L" +
+      " · vent " + (Lwind >= 0 ? "+" : "") + fmt2(Lwind * distMult) + " L" +
+      " · pluie +" + fmt2(LrainExtra * distMult) + " L";
     el("detail2").textContent = detail;
 
     buildChart(profile, oneWayKm, "chart");
@@ -1829,8 +1830,8 @@ function renderHistory() {
           '<div class="desc">' + (h.desc || "") + badge + '</div>' +
           (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
           (h.wind != null || h.slope != null
-            ? '<div class="desc" style="color:#94a3b8;">🌬️ vent ' + (h.wind >= 0 ? "+" : "") + fmt1(h.wind || 0) +
-              " L · ⛰️ pente " + (h.slope >= 0 ? "+" : "") + fmt1(h.slope || 0) + " L</div>"
+            ? '<div class="desc" style="color:#94a3b8;">🌬️ vent ' + (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) +
+              " L · ⛰️ pente " + (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L</div>"
             : '') +
         '</div>' +
         '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;text-align:right;">' + fmt(cost) +
@@ -2052,8 +2053,8 @@ function openDetail(h) {
       (h.adjusted && h.adjusted.co2 && Math.abs(h.adjusted.k - 1) > 0.001 ? " — ajustée ×" + h.adjusted.k.toFixed(3) : ""));
   }
   if (h.wind != null || h.slope != null) parts.push("🌬️ Effets sur ce trajet : vent " +
-    (h.wind >= 0 ? "+" : "") + fmt1(h.wind || 0) + " L · pente " +
-    (h.slope >= 0 ? "+" : "") + fmt1(h.slope || 0) + " L");
+    (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) + " L · pente " +
+    (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L");
   if (h.fixed > 0) parts.push("🔧 Coûts fixes véhicule : " + fmt(h.fixed));
   if (parts.length) parts.push("💰 Total : " + fmt(h.total));
   el("mStats").textContent =
@@ -2514,8 +2515,8 @@ async function gpxCompute(txt, name, quiet) {
     el("gpxResult").style.display = "block";
     el("gpxCost").innerHTML = price > 0 ? fmt(res.cost) + co2Span(litres) : "— (prix ?)";
     el("gpxDetail").textContent = name.replace(/\.gpx$/i, "") + " · " + fmt1(litres) + " L" +
-      " (pente " + (Lslope >= 0 ? "+" : "") + fmt1(Lslope) + " L · vent " +
-      (Lwind >= 0 ? "+" : "") + fmt1(Lwind) + " L)";
+      " (pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
+      (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L)";
     el("gpxDist").textContent = fmt1(dist) + " km";
     el("gpxTime").textContent = dur > 60 ? Math.round(dur / 60) + " min" : (dur > 0 ? Math.round(dur) + " s" : "—");
     el("gpxUp").textContent = hasEle ? fmt1(up) + " m" : "sans alt.";
@@ -2540,8 +2541,8 @@ function gpxSave(res, name, fromDir) {
     { full: "Trajet importé d'une trace GPX\n" + name + "\n" +
       fmt1(res.dist) + " km · " + fmt1(res.litres) + " L" +
       (res.hasEle ? " · dénivelé +" + fmt1(res.up) + " / −" + fmt1(res.down) + " m" : "") +
-      "\nEffets : pente " + (res.slope >= 0 ? "+" : "") + fmt1(res.slope) + " L · vent " +
-      (res.wind >= 0 ? "+" : "") + fmt1(res.wind) + " L" +
+      "\nEffets : pente " + (res.slope >= 0 ? "+" : "") + fmt2(res.slope) + " L · vent " +
+      (res.wind >= 0 ? "+" : "") + fmt2(res.wind) + " L" +
       (res.price > 0 ? "\nCoût carburant : " + fmt(res.fuel) : "\nPrix non renseigné"),
       litres: res.litres, co2: co2Total(res.litres), fuel: res.price > 0 ? res.fuel : null, toll: 0,
       wind: res.wind, slope: res.slope,
@@ -2559,9 +2560,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.15 bêta";
+const APP_VERSION = "v2.16 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
+    "🌬️ Effets vent/pente affichés avec 2 décimales (historique, détail du trajet, résultat GPX et détail Itinéraire) — les petites valeurs comme un dénivelé net de −200 m ne disparaissent plus derrière un « 0,0 L »."],
+  ["v2.15 bêta" + " · 28/10/2026",
     "🌬️ Historique : effet du vent et de la pente enregistré pour chaque trajet Itinéraire et GPX (affiché sous la conso et dans le détail, ex. vent +0,1 L · pente −0,3 L) · GPX : le résultat affiche le détail pente/vent comme le mode Manuel · « i » du calcul déplacé après le sous-titre de connexion."],
   ["v2.14 bêta" + " · 28/10/2026",
     "🧳 Poids : bouton « − » visible dès 1 exemplaire (la charge disparaît à 0, sans passer par Vider) · 🧪 Démo : trajet Paris → Orléans pré-rempli dans Manuel → Adresse, tuile ouverte et bouton « Calculer le coût » clignotant."],
