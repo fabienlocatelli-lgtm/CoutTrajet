@@ -253,42 +253,33 @@
     </div>
   </div>
 </div>
-<button class="home-btn" data-acc="p5">📍 Temps réel (bêta) <span class="sub">GPS</span></button>
-<div class="panel" id="p5">
+<button class="home-btn" data-acc="pGPX">📥 Import GPX <span class="sub">traces d'une appli GPS</span></button>
+<div class="panel" id="pGPX">
   <div class="card">
-    <div class="subtitle">GPS (bêta) + votre courbe — Chrome conseillé, écran gardé allumé, localisation &nbsp;<span class="ibtn" data-info="info7" title="Comment ce calcul est fait">i</span></div>
+    <div class="subtitle">Rejoue une trace .gpx (GPS Logger…) et calcule son coût</div>
 
-    <div class="row">
-      <button class="btn blue" id="gpsStart" style="margin-top:0;">▶ Démarrer</button>
-      <button class="btn gray" id="gpsStop" style="margin-top:0; display:none;">⏹ Arrêter</button>
-      <button class="btn gray" id="gpsReset" style="margin-top:0; display:none;" title="Réinitialiser le trajet">↺</button>
+    <h2>📁 Dossier des traces</h2>
+    <button class="btn gray" id="gpxFolder" style="margin-top:0;">Choisir le dossier…</button>
+    <div class="meta" id="gpxFolderName" style="text-align:left;min-height:1em;"></div>
+    <div class="hint">Choix du dossier : Chrome ou Edge (ordinateur). Sur Firefox, Safari ou mobile, utilisez la sélection manuelle ci-dessous.</div>
+
+    <button class="btn blue" id="gpxScan">🔄 Chercher des nouvelles traces</button>
+    <div id="gpxList"></div>
+
+    <h2>📂 Sélection manuelle <span class="ibtn" data-info="info13" title="Import GPX" style="margin-left:6px;">i</span></h2>
+    <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,text/xml" multiple>
+    <div class="status" id="gpxStatus"></div>
+
+    <div class="result" id="gpxResult" style="display:none;">
+      <div class="amount" id="gpxCost"></div>
+      <div class="detail" id="gpxDetail"></div>
     </div>
-    <div class="status" id="gpsStatus"></div>
-
-    <div class="result" id="gpsLive" style="display:none;">
-      <div class="detail" style="margin:0;">Consommation instantanée</div>
-      <div class="amount" id="gConso">—</div>
-      <div class="detail" id="gSpeed">—</div>
-      <div class="detail" id="gBreak" style="font-size:.75rem;"></div>
-    </div>
-
-    <h2>🧮 Trajet en cours</h2>
     <table>
-      <tr><th>Distance</th><th>Carburant</th><th>Coût</th><th>Conso moy.</th></tr>
-      <tr><td id="gDist">—</td><td id="gLitres">—</td><td id="gCost">—</td><td id="gAvg">—</td></tr>
+      <tr><th>Distance</th><th>Durée</th><th>Dénivelé +</th><th>Dénivelé −</th><th>Conso moy.</th></tr>
+      <tr><td id="gpxDist">—</td><td id="gpxTime">—</td><td id="gpxUp">—</td><td id="gpxDown">—</td><td id="gpxAvg">—</td></tr>
     </table>
-    <div class="meta" id="gCostNoFixed" style="text-align:center;"></div>
-
-    <div class="toggle">
-      <span class="tlabel">🌤️ Météo réelle (mise à jour tous les 10 km)</span>
-      <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
-    </div>
-
-    <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
-    <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
-      le point s'ajoute à votre courbe.</div>
-
-    <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
+    <div class="meta" id="gpxCostNoFixed" style="text-align:center;"></div>
+    <button class="btn blue" id="gpxSave" style="display:none;">💾 Enregistrer ce trajet</button>
   </div>
 </div>
 <button class="home-btn" data-acc="pPlein">⛽ Pleins d'essence <span class="sub">saisie, conso réelle</span></button>
@@ -463,6 +454,7 @@
     <button class="btn gray" data-info="info12" style="margin-top:8px;">📐 Les formules utilisées</button>
     <button class="btn gray" data-info="info5" style="margin-top:8px;">📍 GPS : la distance reste à 0 ?</button>
     <button class="btn gray" data-info="info6" style="margin-top:8px;">🌤️ GPS : météo en temps réel</button>
+    <button class="btn gray" data-info="info13" style="margin-top:8px;">📥 GPX : importer une trace</button>
   </div>
 </div>
 
@@ -497,8 +489,46 @@
     <button class="btn gray" id="clClose">Fermer</button>
   </div>
 </div>
+<button class="home-btn" data-acc="p5">📍 Temps réel (bêta) <span class="sub">GPS</span></button>
+<div class="panel" id="p5">
+  <div class="card">
+    <div class="subtitle">GPS (bêta) + votre courbe — Chrome conseillé, écran gardé allumé, localisation &nbsp;<span class="ibtn" data-info="info7" title="Comment ce calcul est fait">i</span></div>
+
+    <div class="row">
+      <button class="btn blue" id="gpsStart" style="margin-top:0;">▶ Démarrer</button>
+      <button class="btn gray" id="gpsStop" style="margin-top:0; display:none;">⏹ Arrêter</button>
+      <button class="btn gray" id="gpsReset" style="margin-top:0; display:none;" title="Réinitialiser le trajet">↺</button>
+    </div>
+    <div class="status" id="gpsStatus"></div>
+
+    <div class="result" id="gpsLive" style="display:none;">
+      <div class="detail" style="margin:0;">Consommation instantanée</div>
+      <div class="amount" id="gConso">—</div>
+      <div class="detail" id="gSpeed">—</div>
+      <div class="detail" id="gBreak" style="font-size:.75rem;"></div>
+    </div>
+
+    <h2>🧮 Trajet en cours</h2>
+    <table>
+      <tr><th>Distance</th><th>Carburant</th><th>Coût</th><th>Conso moy.</th></tr>
+      <tr><td id="gDist">—</td><td id="gLitres">—</td><td id="gCost">—</td><td id="gAvg">—</td></tr>
+    </table>
+    <div class="meta" id="gCostNoFixed" style="text-align:center;"></div>
+
+    <div class="toggle">
+      <span class="tlabel">🌤️ Météo réelle (mise à jour tous les 10 km)</span>
+      <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
+    </div>
+
+    <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
+    <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
+      le point s'ajoute à votre courbe.</div>
+
+    <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
+  </div>
+</div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.5 bêta · 27/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.6 bêta · 28/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
 </footer>
 </div>
@@ -2118,10 +2148,228 @@ el("impFile").addEventListener("change", (e) => {
   r.readAsText(f);
 });
 
+/* ---------- Niveau 4 : import GPX ---------- */
+let gpxDir = null; // FileSystemDirectoryHandle mémorisé (IndexedDB)
+const gpxSeen = new Set(JSON.parse(store.get("trajet_gpxSeen") || "[]"));
+const gpxSaveSeen = () => store.set("trajet_gpxSeen", JSON.stringify([...gpxSeen]));
+const gpxLast = { res: null, name: null, fromDir: null };
+const gSetStatus = (m, err) => { el("gpxStatus").textContent = m; el("gpxStatus").className = "status" + (err ? " err" : ""); };
+
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("trajetGpx", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("h");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const t = db.transaction("h").objectStore("h").get(k);
+    t.onsuccess = () => res(t.result);
+    t.onerror = () => rej(t.error);
+  });
+}
+async function idbSet(k, v) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const t = db.transaction("h", "readwrite").objectStore("h").put(v, k);
+    t.onsuccess = () => res();
+    t.onerror = () => rej(t.error);
+  });
+}
+function gpxShowDir() {
+  el("gpxFolderName").textContent = gpxDir ? "Dossier : " + gpxDir.name : "Aucun dossier choisi";
+}
+el("gpxFolder").addEventListener("click", async () => {
+  if (!window.showDirectoryPicker) {
+    gSetStatus("Le choix d'un dossier nécessite Chrome ou Edge (ordinateur). Utilise la sélection manuelle ci-dessous.", true);
+    return;
+  }
+  try {
+    gpxDir = await window.showDirectoryPicker({ mode: "read" });
+    await idbSet("dir", gpxDir);
+    gpxShowDir();
+    gSetStatus("Dossier enregistré : " + gpxDir.name);
+  } catch (e) {
+    if (e && e.name !== "AbortError") gSetStatus("Dossier non choisi", true);
+  }
+});
+idbGet("dir").then(h => { if (h && h.kind === "directory") { gpxDir = h; gpxShowDir(); } }).catch(() => {});
+
+el("gpxScan").addEventListener("click", async () => {
+  if (!window.showDirectoryPicker) {
+    gSetStatus("Exploration d'un dossier : Chrome ou Edge uniquement. Sélection manuelle ci-dessous.", true);
+    return;
+  }
+  if (!gpxDir) { gSetStatus("Choisis d'abord le dossier des traces.", true); return; }
+  let perm = await gpxDir.queryPermission({ mode: "read" });
+  if (perm === "prompt") perm = await gpxDir.requestPermission({ mode: "read" });
+  if (perm !== "granted") { gSetStatus("Accès au dossier refusé.", true); return; }
+  const files = [];
+  for await (const entry of gpxDir.values()) {
+    if (entry.kind === "file" && /\.gpx$/i.test(entry.name)) files.push(entry);
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name));
+  const fresh = files.filter(f => !gpxSeen.has(f.name));
+  const box = el("gpxList");
+  box.innerHTML = "";
+  if (!files.length) { gSetStatus("Aucun fichier .gpx dans « " + gpxDir.name + " »."); return; }
+  if (!fresh.length) { gSetStatus("Aucune nouvelle trace (" + files.length + " déjà importée(s))."); return; }
+  gSetStatus(fresh.length + " nouvelle(s) trace(s) — touchez-en une pour calculer son coût.");
+  fresh.forEach(f => {
+    const b = document.createElement("button");
+    b.className = "btn gray";
+    b.style.marginTop = "8px";
+    b.textContent = "▶ " + f.name;
+    b.addEventListener("click", async () => {
+      gSetStatus("Lecture de " + f.name + "…");
+      try {
+        const file = await f.getFile();
+        gpxLast.fromDir = f.name;
+        gpxCompute(await file.text(), f.name);
+      } catch (e) { gSetStatus("Lecture impossible : " + (e && e.message ? e.message : "erreur"), true); }
+    });
+    box.appendChild(b);
+  });
+});
+
+el("gpxFile").addEventListener("change", async (e) => {
+  const fs = [...e.target.files].filter(f => /\.gpx$/i.test(f.name));
+  e.target.value = "";
+  if (!fs.length) { gSetStatus("Aucun fichier .gpx sélectionné.", true); return; }
+  if (fs.length === 1) {
+    gpxLast.fromDir = null;
+    gpxCompute(await fs[0].text(), fs[0].name);
+    return;
+  }
+  let n = 0;
+  for (const f of fs) {
+    const res = gpxCompute(await f.text(), f.name, true);
+    if (res) { gpxSave(res, f.name, null); n++; }
+  }
+  gSetStatus(n + " trace(s) enregistrée(s) dans l'historique.");
+});
+
+function gpxParse(txt) {
+  const doc = new DOMParser().parseFromString(txt, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("fichier GPX invalide");
+  const nodes = [...doc.getElementsByTagName("trkpt")];
+  if (!nodes.length) throw new Error("aucun point de trace");
+  const pts = nodes.map(n => {
+    const e = n.getElementsByTagName("ele")[0];
+    const t = n.getElementsByTagName("time")[0];
+    return { lon: parseFloat(n.getAttribute("lon")), lat: parseFloat(n.getAttribute("lat")),
+      ele: e ? parseFloat(e.textContent) : null,
+      t: t ? new Date(t.textContent).getTime() : null };
+  }).filter(p => isFinite(p.lat) && isFinite(p.lon));
+  if (pts.length < 2) throw new Error("moins de 2 points valides");
+  return pts;
+}
+
+function gpxCompute(txt, name, quiet) {
+  let pts;
+  try { pts = gpxParse(txt); }
+  catch (e) { if (!quiet) gSetStatus("« " + name + " » : " + e.message, true); return null; }
+  const hasEle = pts.some(p => p.ele !== null && isFinite(p.ele));
+  const altS = []; // altitudes relevées tous les 200 m
+  let lastAltD = -999;
+  let dist = 0, litres = 0, dur = 0;
+  const f = condFactor();
+  let prev = pts[0];
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i];
+    const d = haversine([prev.lon, prev.lat], [p.lon, p.lat]) / 1000;
+    if (!isFinite(d) || d < 0) { prev = p; continue; }
+    const dt = (p.t !== null && prev.t !== null) ? (p.t - prev.t) / 1000 : null;
+    if (dt !== null && dt > 0 && d / dt > 0.07) { prev = p; continue; } // > 252 km/h : saut GPS ignoré
+    if (dt !== null && dt > 0) dur += dt;
+    dist += d;
+    if (hasEle && p.ele !== null && isFinite(p.ele) && dist - lastAltD >= 0.2) {
+      lastAltD = dist; altS.push({ d: dist, alt: p.ele });
+    }
+    if (dt !== null && dt > 0) {
+      const v = d / dt * 3600;
+      if (v >= 3) {
+        const vc = Math.min(v, getMaxSpeed());
+        let grade = 0;
+        if (altS.length >= 2) {
+          const a = altS[Math.max(0, altS.length - 3)], b = altS[altS.length - 1];
+          const dd = b.d - a.d;
+          if (dd > 0.3) grade = Math.max(-0.12, Math.min(0.12, (b.alt - a.alt) / (dd * 1000)));
+        }
+        const base = interp(curve, vc) * f;
+        const grEff = Math.max(gradeEffect(grade), -0.7 * base); // descente plafonnée au ralenti
+        litres += d / 100 * Math.max(0.05, base + grEff);
+      }
+    }
+    prev = p;
+  }
+  if (dist < 0.05) { if (!quiet) gSetStatus("« " + name + " » : trace quasi immobile, rien à calculer.", true); return null; }
+  let up = 0, down = 0;
+  for (let i = 1; i < altS.length; i++) {
+    const diff = altS[i].alt - altS[i - 1].alt;
+    if (diff > 0) up += diff; else down -= diff;
+  }
+  const price = getPrice();
+  const fpk = fixedPerKm();
+  const fixed = fpk ? fpk.perKm * dist : 0;
+  const res = { dist, litres, dur, up, down, hasEle,
+    avg: litres / dist * 100,
+    fuel: price > 0 ? litres * price : 0,
+    fixed, price,
+    cost: (price > 0 ? litres * price : 0) + fixed,
+    t0: pts[0].t };
+  if (!quiet) {
+    gpxLast.res = res; gpxLast.name = name;
+    el("gpxResult").style.display = "block";
+    el("gpxCost").textContent = price > 0 ? fmt(res.cost) : "— (prix ?)";
+    el("gpxDetail").textContent = name.replace(/\.gpx$/i, "") + " · " + fmt1(litres) + " L";
+    el("gpxDist").textContent = fmt1(dist) + " km";
+    el("gpxTime").textContent = dur > 60 ? Math.round(dur / 60) + " min" : (dur > 0 ? Math.round(dur) + " s" : "—");
+    el("gpxUp").textContent = hasEle ? fmt1(up) + " m" : "sans alt.";
+    el("gpxDown").textContent = hasEle ? fmt1(down) + " m" : "sans alt.";
+    el("gpxAvg").textContent = fmt1(res.avg) + " L/100";
+    el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
+    el("gpxSave").style.display = "block";
+    el("gpxSave").disabled = false;
+    el("gpxSave").textContent = "💾 Enregistrer ce trajet";
+    gSetStatus("Trace « " + name + " » calculée ✔");
+  }
+  return res;
+}
+
+function gpxSave(res, name, fromDir) {
+  const mins = Math.round(res.dur / 60);
+  saveEntry("GPX",
+    fmt1(res.dist) + " km" + (mins > 0 ? " en " + mins + " min" : "") + " · trace GPS",
+    res.cost,
+    fmt1(res.avg) + " L/100 (trace GPS)",
+    { full: "Trajet importé d'une trace GPX\n" + name + "\n" +
+      fmt1(res.dist) + " km · " + fmt1(res.litres) + " L" +
+      (res.hasEle ? " · dénivelé +" + fmt1(res.up) + " / −" + fmt1(res.down) + " m" : "") +
+      (res.price > 0 ? "\nCoût carburant : " + fmt(res.fuel) : "\nPrix non renseigné"),
+      litres: res.litres, fuel: res.price > 0 ? res.fuel : null, toll: 0,
+      fixed: res.fixed, dist: res.dist, name: name.replace(/\.gpx$/i, ""),
+      tripDate: res.t0 ? new Date(res.t0).toISOString() : null });
+  if (fromDir) { gpxSeen.add(fromDir); gpxSaveSeen(); }
+}
+
+el("gpxSave").addEventListener("click", () => {
+  if (!gpxLast.res) return;
+  gpxSave(gpxLast.res, gpxLast.name, gpxLast.fromDir);
+  el("gpxSave").textContent = "✔ Enregistré";
+  el("gpxSave").disabled = true;
+  setTimeout(() => { el("gpxSave").disabled = false; el("gpxSave").textContent = "💾 Enregistrer ce trajet"; }, 4000);
+});
+
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.5 bêta";
+const APP_VERSION = "v2.6 bêta";
 const CHANGELOG = [
-  [APP_VERSION + " · 27/10/2026",
+  [APP_VERSION + " · 28/10/2026",
+    "Import GPX : nouveau tiroir 📥 — dossier des traces mémorisé (Chrome/Edge), bouton « Chercher des nouvelles traces » listant les .gpx non importés, sélection manuelle multi-fichiers ailleurs · coût calculé tronçon par tronçon avec la vraie vitesse et les vraies altitudes de la trace · onglet Temps réel déplacé en bas de la page."],
+  ["v2.5 bêta · 27/10/2026",
     "Ergonomie : date de départ pré-remplie avec le jour (libellé simplifié) · boutons « i » placés en fin de ligne (Poids transporté, Météo réelle, Calculer le coût, Coûts fixes, Sauvegarde, Pleins) · le « i » du mode Temps réel est dans son titre · les aides GPS (distance à 0, météo en temps réel) rejoignent la section Aide."],
   ["v2.4 bêta · 27/10/2026",
     "Itinéraire : date et heure de départ toujours visibles (servent à la météo réelle et à la date du trajet enregistré) · arrêts intermédiaires multiples (bouton « + ») · Temps réel (bêta) : Chrome conseillé et écran gardé allumé, bouton ↺ Réinitialiser · infobulles remplacées par des boutons « i » discrets ouvrant une fenêtre d'explication."],
@@ -2154,7 +2402,7 @@ el("clBg").addEventListener("click", (e) => {
 });
 
 /* ---------- Infobulles → modale ---------- */
-const INFOS = {"info1":["Effet du poids","Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km."],"info2":["Comment ce calcul est fait","Chaque sous-trajet : litres = distance ÷ 100 × conso. Carburant = litres × prix du litre\n(réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).\nCe mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel."],"info3":["Quelques dates fonctionnent ?","Sans date : météo actuelle. Date passée : archive Open-Meteo.\nDate future ≤ 16 jours : prévisions. Au-delà : impossible."],"info4":["Comment ce calcul est fait","Par tronçon : conso = courbe(vitesse) + effet pente + effet vent, × effet pluie.\n<br>• <b>Vitesse</b> : estimée par OSRM, plafonnée par votre « vitesse max ».\n<br>• <b>Pente</b> : altitudes Open-Meteo le long du tracé. ±1 % de pente ≈ ±1,35 L/100km\npour 1200 kg (force = m·g·pente ; énergie essence 32,2 MJ/L ; rendement 27 %).\n<br>• <b>Vent</b> : surcroît aérodynamique ½·ρ·CdA·(v_rel²−v²) avec le vent projeté sur l'axe\ndu trajet (ex. 25 km/h de face à 90 km/h ≈ +1,8 L/100km).\n<br>• <b>Pluie</b> : +5 % (faible) ou +12 % (forte) — routes mouillées, climatisation.\n<br>Le résultat détaille la part de chaque effet."],"info5":["La distance reste à 0 ?","La distance et la conso ne sont comptées qu'avec un signal précis (&lt; 30 m) et une vitesse GPS.\nUne précision de ~2000 m signifie que le téléphone n'a pas de fix satellite (position « réseau »).\nVérifiez la <b>position précise</b> du navigateur (iOS : Réglages &gt; Confidentialité &gt; Service de localisation ;\nAndroid : autorisation de position « Précise »), placez-vous à l'extérieur et laissez le GPS se caler 1–2 min."],"info6":["Météo en temps réel","Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé\n(altitude relevée tous les 2 km) pour corriger la consommation instantanée."],"info7":["Comment ce calcul est fait","Conso instantanée = courbe(vitesse GPS) + effet pente (altitudes relevées tous les 2 km)\n+ effet vent (météo à votre position, projetée sur votre cap GPS), × effet pluie.\nLe carburant du trajet est la somme distance × conso de chaque instant.\nLe GPS est lissé en ville : à l'arrêt la consommation affichée est celle du dernier instant valide."],"info8":["Réconciliation avec l'historique","Entre deux pleins complets, les trajets cochés de l'historique sont\nrecalibrés sur les litres réellement consommés, au prix au litre du plein précédent."],"info9":["Comment sont calculés les coûts fixes","Chaque dépense (assurance, entretien, réparation…) est divisée\npar sa durée de lissage (en mois ou en an(s)) et comptée seulement entre sa date et la fin\nde l'amortissement — saisis ton assurance chaque année, lissée sur 1 an.\nCoche « Dépense mensuelle » pour un montant payé chaque mois (compté 12 mois/an).\nLe tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés\nd'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au\ncoût de chaque trajet enregistré."],"info10":["Export / import","Exporte tout (historique, destinations, réglages, courbes) dans un fichier\nJSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil."],"info11":["🚀 Comment démarrer ?","<b>Les 3 modes de calcul (tuile 🛣️ Manuel) :</b><br>\n• 🗺️ <b>Adresse</b> : départ → arrivée, avec arrêt intermédiaire optionnel. Itinéraire réel, vitesse estimée, pente (altitudes), vent et météo le long du tracé.<br>\n• 📏 <b>Distance</b> : tu saisis un ou plusieurs sous-trajets en km, avec péage éventuel. Simple, sans Internet.<br>\n• 📍 <b>Temps réel</b> (tuile GPS) : lance le suivi pendant que tu conduis. Conso instantanée selon ta vitesse, la pente (mesurée par altitude adaptative), le vent et la pluie. Bouton 🎯 pour calibrer la courbe sur ton ordinateur de bord.<br>\n<b>Suivre sa consommation réelle :</b> enregistre chaque plein dans ⛽ Pleins d'essence (litres, prix au litre, km compteur). Les trajets enregistrés entre deux pleins sont automatiquement réconciliés (badge « ajusté ×k ») : l'estimation est mise à l'échelle de ta consommation réelle.<br>\n<b>Coûts fixes (assurance, entretien…) :</b> dans 🚗 Mon véhicule, saisis chaque dépense avec sa date et sa durée de lissage — en mois ou en an(s) — ou coche « dépense mensuelle » pour un montant payé chaque mois. Le tout, divisé par tes km/an (relevés de compteur ou valeur manuelle), donne un coût fixe au km ajouté à chaque trajet. Pour l'assurance annuelle : une entrée par an, lissée sur 1 an.<br>\n<b>Prix et réglages :</b> ⚙️ Préférences (prix du litre, conditions, export/import de sauvegarde).<br>\n<b>Historique :</b> chaque trajet peut être renommé et daté (ouvre son détail, clique sur le titre ou la date), coché pour la réconciliation, avec totaux sans/avec coûts fixes."],"info12":["Les formules utilisées","<b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).\nMontée +1 %, 1200 kg ≈ +1,35 L/100km ; en descente l'injection coupée limite l'économie à −70 % de la conso de base (≈ ralenti).\n<br><b>Vent</b> : surcroît = ½·1,2·CdA·(v_rel²−v²)·v, v_rel = vitesse ± vent axial.\n25 km/h de face à 90 ≈ +1,8 L/100km ; vent arrière : économie symétrique.\n<br><b>Pluie</b> : +5 % faible, +12 % forte (modèle : résistance de roulement mouillé + climatisation).\n<br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;\nun point étalonné remplace toute estimation à cette vitesse."]};
+const INFOS = {"info13":["📥 GPX : importer une trace","<b>Principe</b> : une appli d'enregistrement (ex. GPS Logger, open source, F-Droid) écrit des traces .gpx sur le téléphone pendant que tu conduis ; ici, tu rejoues la trace et le coût est calculé.<br><b>Dossier</b> : « Choisir le dossier » (Chrome/Edge sur ordinateur) mémorise l'emplacement des traces sur cet appareil. « Chercher des nouvelles traces » relit ce dossier et n'affiche que les fichiers .gpx pas encore enregistrés ; le nom d'un fichier déjà importé n'y revient plus. Sur Firefox, Safari ou mobile, le choix d'un dossier n'est pas disponible : utilise la sélection manuelle (plusieurs fichiers possibles, chacun est enregistré dans l'historique).<br><b>Calcul</b> : conso par tronçon = courbe(vitesse réelle entre 2 points, plafonnée par ta vitesse max) + effet pente (altitudes réelles de la trace, ±1 % ≈ ±1,35 L/100km pour 1200 kg, descente plafonnée au ralenti). Vent et pluie ne sont pas comptés (météo a posteriori indisponible). Coût = carburant + coûts fixes au km ; le trajet rejoint l'historique avec sa date et son heure réelles."],"info1":["Effet du poids","Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km."],"info2":["Comment ce calcul est fait","Chaque sous-trajet : litres = distance ÷ 100 × conso. Carburant = litres × prix du litre\n(réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).\nCe mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel."],"info3":["Quelques dates fonctionnent ?","Sans date : météo actuelle. Date passée : archive Open-Meteo.\nDate future ≤ 16 jours : prévisions. Au-delà : impossible."],"info4":["Comment ce calcul est fait","Par tronçon : conso = courbe(vitesse) + effet pente + effet vent, × effet pluie.\n<br>• <b>Vitesse</b> : estimée par OSRM, plafonnée par votre « vitesse max ».\n<br>• <b>Pente</b> : altitudes Open-Meteo le long du tracé. ±1 % de pente ≈ ±1,35 L/100km\npour 1200 kg (force = m·g·pente ; énergie essence 32,2 MJ/L ; rendement 27 %).\n<br>• <b>Vent</b> : surcroît aérodynamique ½·ρ·CdA·(v_rel²−v²) avec le vent projeté sur l'axe\ndu trajet (ex. 25 km/h de face à 90 km/h ≈ +1,8 L/100km).\n<br>• <b>Pluie</b> : +5 % (faible) ou +12 % (forte) — routes mouillées, climatisation.\n<br>Le résultat détaille la part de chaque effet."],"info5":["La distance reste à 0 ?","La distance et la conso ne sont comptées qu'avec un signal précis (&lt; 30 m) et une vitesse GPS.\nUne précision de ~2000 m signifie que le téléphone n'a pas de fix satellite (position « réseau »).\nVérifiez la <b>position précise</b> du navigateur (iOS : Réglages &gt; Confidentialité &gt; Service de localisation ;\nAndroid : autorisation de position « Précise »), placez-vous à l'extérieur et laissez le GPS se caler 1–2 min."],"info6":["Météo en temps réel","Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé\n(altitude relevée tous les 2 km) pour corriger la consommation instantanée."],"info7":["Comment ce calcul est fait","Conso instantanée = courbe(vitesse GPS) + effet pente (altitudes relevées tous les 2 km)\n+ effet vent (météo à votre position, projetée sur votre cap GPS), × effet pluie.\nLe carburant du trajet est la somme distance × conso de chaque instant.\nLe GPS est lissé en ville : à l'arrêt la consommation affichée est celle du dernier instant valide."],"info8":["Réconciliation avec l'historique","Entre deux pleins complets, les trajets cochés de l'historique sont\nrecalibrés sur les litres réellement consommés, au prix au litre du plein précédent."],"info9":["Comment sont calculés les coûts fixes","Chaque dépense (assurance, entretien, réparation…) est divisée\npar sa durée de lissage (en mois ou en an(s)) et comptée seulement entre sa date et la fin\nde l'amortissement — saisis ton assurance chaque année, lissée sur 1 an.\nCoche « Dépense mensuelle » pour un montant payé chaque mois (compté 12 mois/an).\nLe tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés\nd'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au\ncoût de chaque trajet enregistré."],"info10":["Export / import","Exporte tout (historique, destinations, réglages, courbes) dans un fichier\nJSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil."],"info11":["🚀 Comment démarrer ?","<b>Les 3 modes de calcul (tuile 🛣️ Manuel) :</b><br>\n• 🗺️ <b>Adresse</b> : départ → arrivée, avec arrêt intermédiaire optionnel. Itinéraire réel, vitesse estimée, pente (altitudes), vent et météo le long du tracé.<br>\n• 📏 <b>Distance</b> : tu saisis un ou plusieurs sous-trajets en km, avec péage éventuel. Simple, sans Internet.<br>\n• 📍 <b>Temps réel</b> (tuile GPS) : lance le suivi pendant que tu conduis. Conso instantanée selon ta vitesse, la pente (mesurée par altitude adaptative), le vent et la pluie. Bouton 🎯 pour calibrer la courbe sur ton ordinateur de bord.<br>\n<b>Suivre sa consommation réelle :</b> enregistre chaque plein dans ⛽ Pleins d'essence (litres, prix au litre, km compteur). Les trajets enregistrés entre deux pleins sont automatiquement réconciliés (badge « ajusté ×k ») : l'estimation est mise à l'échelle de ta consommation réelle.<br>\n<b>Coûts fixes (assurance, entretien…) :</b> dans 🚗 Mon véhicule, saisis chaque dépense avec sa date et sa durée de lissage — en mois ou en an(s) — ou coche « dépense mensuelle » pour un montant payé chaque mois. Le tout, divisé par tes km/an (relevés de compteur ou valeur manuelle), donne un coût fixe au km ajouté à chaque trajet. Pour l'assurance annuelle : une entrée par an, lissée sur 1 an.<br>\n<b>Prix et réglages :</b> ⚙️ Préférences (prix du litre, conditions, export/import de sauvegarde).<br>\n<b>Historique :</b> chaque trajet peut être renommé et daté (ouvre son détail, clique sur le titre ou la date), coché pour la réconciliation, avec totaux sans/avec coûts fixes."],"info12":["Les formules utilisées","<b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).\nMontée +1 %, 1200 kg ≈ +1,35 L/100km ; en descente l'injection coupée limite l'économie à −70 % de la conso de base (≈ ralenti).\n<br><b>Vent</b> : surcroît = ½·1,2·CdA·(v_rel²−v²)·v, v_rel = vitesse ± vent axial.\n25 km/h de face à 90 ≈ +1,8 L/100km ; vent arrière : économie symétrique.\n<br><b>Pluie</b> : +5 % faible, +12 % forte (modèle : résistance de roulement mouillé + climatisation).\n<br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;\nun point étalonné remplace toute estimation à cette vitesse."]};
 document.addEventListener("click", (e) => {
   const b = e.target && e.target.closest ? e.target.closest("[data-info]") : null;
   if (!b) return;
