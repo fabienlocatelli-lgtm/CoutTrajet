@@ -546,7 +546,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.8 bêta · 28/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.9 bêta · 28/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2514,9 +2514,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.8 bêta";
+const APP_VERSION = "v2.9 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
+    "🌍 Rétro-calcul : les trajets enregistrés avant la v2.8 reçoivent automatiquement leur kg CO₂e au chargement (à partir de leurs litres et du carburant réglé dans Mon véhicule), puis intègrent le total de la sélection."],
+  ["v2.8 bêta · 28/10/2026",
     "🌍 CO₂e : émissions de chaque trajet affichées à côté du prix (ex. 233,12 € / 18 kgCO₂e), clic → fenêtre du détail des gaz (CO₂, CH₄, N₂O, amont du carburant) · champ « carburant » dans Mon véhicule (SP95/98, E10, gazole — facteurs ADEME puits à la roue) · total CO₂e de la sélection cochée dans l'historique · aide « kg CO₂e : le détail du calcul »."],
   ["v2.7 bêta · 28/10/2026",
     "Import GPX (suite) : météo réelle de la trace — vent et pluie d'archive Open-Meteo aux positions et heures des points (jusqu'à 8 relevés), interrupteur 🌤️ pour l'activer · sans horodatage : vitesse supposée 80 km/h · pied de page : mention de l'outil de développement."],
@@ -2583,6 +2585,16 @@ wireToll("toll2", "toll2Parsed");
   el("fdDate").value = el("flDate").value;
   el("wxDate").value = el("flDate").value; }
 if (REF_CURVES[currentCurveName]) el("curveName").value = "";
+
+/* Rétro-calcul CO₂e : anciens trajets avec litres connus mais sans CO₂e stocké */
+let retroCo2 = 0;
+history.forEach(h => {
+  if (h.type !== "Plein" && h.litres > 0 && !h.co2) {
+    h.co2 = co2Total(h.litres);
+    retroCo2++;
+  }
+});
+if (retroCo2) { saveHistory(); toast(retroCo2 + " ancien(s) trajet(s) : CO₂e rétro-calculé ✔"); }
 
 renderSegments();
 renderCurveSelect();
