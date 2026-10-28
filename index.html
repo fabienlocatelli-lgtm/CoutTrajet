@@ -270,6 +270,11 @@
     <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,text/xml" multiple>
     <div class="status" id="gpxStatus"></div>
 
+    <div class="toggle">
+      <span class="tlabel">🌤️ Météo réelle de la trace (dates et heures du GPX)</span>
+      <label class="switch"><input type="checkbox" id="wxGpx" checked><span class="slider"></span></label>
+    </div>
+
     <div class="result" id="gpxResult" style="display:none;">
       <div class="amount" id="gpxCost"></div>
       <div class="detail" id="gpxDetail"></div>
@@ -279,6 +284,7 @@
       <tr><td id="gpxDist">—</td><td id="gpxTime">—</td><td id="gpxUp">—</td><td id="gpxDown">—</td><td id="gpxAvg">—</td></tr>
     </table>
     <div class="meta" id="gpxCostNoFixed" style="text-align:center;"></div>
+    <div class="meta" id="gpxWx" style="text-align:center;min-height:1em;"></div>
     <button class="btn blue" id="gpxSave" style="display:none;">💾 Enregistrer ce trajet</button>
   </div>
 </div>
@@ -528,8 +534,8 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.6 bêta · 28/10/2026</span><br>
-  Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.7 bêta · 28/10/2026</span><br>
+  Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
 <div class="modal-bg" id="infoBg">
@@ -2228,7 +2234,7 @@ el("gpxScan").addEventListener("click", async () => {
       try {
         const file = await f.getFile();
         gpxLast.fromDir = f.name;
-        gpxCompute(await file.text(), f.name);
+        await gpxCompute(await file.text(), f.name);
       } catch (e) { gSetStatus("Lecture impossible : " + (e && e.message ? e.message : "erreur"), true); }
     });
     box.appendChild(b);
@@ -2241,12 +2247,12 @@ el("gpxFile").addEventListener("change", async (e) => {
   if (!fs.length) { gSetStatus("Aucun fichier .gpx sélectionné.", true); return; }
   if (fs.length === 1) {
     gpxLast.fromDir = null;
-    gpxCompute(await fs[0].text(), fs[0].name);
+    await gpxCompute(await fs[0].text(), fs[0].name);
     return;
   }
   let n = 0;
   for (const f of fs) {
-    const res = gpxCompute(await f.text(), f.name, true);
+    const res = await gpxCompute(await f.text(), f.name, true);
     if (res) { gpxSave(res, f.name, null); n++; }
   }
   gSetStatus(n + " trace(s) enregistrée(s) dans l'historique.");
@@ -2268,15 +2274,51 @@ function gpxParse(txt) {
   return pts;
 }
 
-function gpxCompute(txt, name, quiet) {
+async function gpxWeather(samples) { // samples : [{lat, lon, t, d}]
+  const out = [];
+  const now = Date.now();
+  for (const sm of samples) {
+    const isoDate = new Date(sm.t).toISOString().slice(0, 10);
+    let url;
+    if (sm.t < now - 5 * 86400e3) { // plus de 5 jours : archive
+      url = "https://archive-api.open-meteo.com/v1/archive?latitude=" + sm.lat.toFixed(3) +
+        "&longitude=" + sm.lon.toFixed(3) + "&start_date=" + isoDate + "&end_date=" + isoDate +
+        "&hourly=wind_speed_10m,wind_direction_10m,rain";
+    } else { // récent : prévisions + passé récent
+      const past = Math.min(92, Math.max(0, Math.ceil((now - sm.t) / 86400e3)));
+      url = "https://api.open-meteo.com/v1/forecast?latitude=" + sm.lat.toFixed(3) +
+        "&longitude=" + sm.lon.toFixed(3) +
+        "&hourly=wind_speed_10m,wind_direction_10m,rain&past_days=" + past + "&forecast_days=1";
+    }
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const h = d.hourly || {};
+      const times = h.time || [];
+      let idx = -1;
+      for (let i = 0; i < times.length; i++) {
+        if (Math.abs(new Date(times[i] + "Z").getTime() - sm.t) <= 1800e3) { idx = i; break; }
+      }
+      if (idx < 0) continue;
+      out.push({ d: sm.d,
+        wind: h.wind_speed_10m ? (h.wind_speed_10m[idx] || 0) : 0,
+        dir: h.wind_direction_10m ? (h.wind_direction_10m[idx] || 0) : 0,
+        rain: h.rain ? (h.rain[idx] || 0) : 0 });
+    } catch (e) {}
+  }
+  return out;
+}
+
+async function gpxCompute(txt, name, quiet) {
   let pts;
   try { pts = gpxParse(txt); }
   catch (e) { if (!quiet) gSetStatus("« " + name + " » : " + e.message, true); return null; }
   const hasEle = pts.some(p => p.ele !== null && isFinite(p.ele));
+  const hasTime = pts[0].t !== null && pts[pts.length - 1].t !== null;
+  const segs = [];
   const altS = []; // altitudes relevées tous les 200 m
-  let lastAltD = -999;
-  let dist = 0, litres = 0, dur = 0;
-  const f = condFactor();
+  let lastAltD = -999, dist = 0, dur = 0;
   let prev = pts[0];
   for (let i = 1; i < pts.length; i++) {
     const p = pts[i];
@@ -2285,28 +2327,66 @@ function gpxCompute(txt, name, quiet) {
     const dt = (p.t !== null && prev.t !== null) ? (p.t - prev.t) / 1000 : null;
     if (dt !== null && dt > 0 && d / dt > 0.07) { prev = p; continue; } // > 252 km/h : saut GPS ignoré
     if (dt !== null && dt > 0) dur += dt;
+    const dStart = dist;
     dist += d;
+    segs.push({ dStart, dEnd: dist, d, v: (dt !== null && dt > 0) ? d / dt * 3600 : null,
+      lat: p.lat, lon: p.lon, tEnd: p.t,
+      cap: bearing([prev.lon, prev.lat], [p.lon, p.lat]) });
     if (hasEle && p.ele !== null && isFinite(p.ele) && dist - lastAltD >= 0.2) {
       lastAltD = dist; altS.push({ d: dist, alt: p.ele });
-    }
-    if (dt !== null && dt > 0) {
-      const v = d / dt * 3600;
-      if (v >= 3) {
-        const vc = Math.min(v, getMaxSpeed());
-        let grade = 0;
-        if (altS.length >= 2) {
-          const a = altS[Math.max(0, altS.length - 3)], b = altS[altS.length - 1];
-          const dd = b.d - a.d;
-          if (dd > 0.3) grade = Math.max(-0.12, Math.min(0.12, (b.alt - a.alt) / (dd * 1000)));
-        }
-        const base = interp(curve, vc) * f;
-        const grEff = Math.max(gradeEffect(grade), -0.7 * base); // descente plafonnée au ralenti
-        litres += d / 100 * Math.max(0.05, base + grEff);
-      }
     }
     prev = p;
   }
   if (dist < 0.05) { if (!quiet) gSetStatus("« " + name + " » : trace quasi immobile, rien à calculer.", true); return null; }
+
+  /* Météo réelle : vent et pluie d'archive/prévision aux positions et heures du GPX */
+  let wx = [];
+  const wxAsked = el("wxGpx").checked;
+  if (wxAsked && !hasTime && !quiet) gSetStatus("« " + name + " » : trace sans horodatage — météo ignorée.");
+  if (wxAsked && hasTime) {
+    if (!quiet) gSetStatus("Météo de la trace : interrogation d'Open-Meteo…");
+    const n = Math.min(8, Math.max(1, Math.round(dist / 10)));
+    const samples = [];
+    for (let i = 0; i < n; i++) {
+      const target = dist * (i + 0.5) / n;
+      const seg = segs.find(sg => sg.dEnd >= target) || segs[segs.length - 1];
+      samples.push({ lat: seg.lat, lon: seg.lon, t: seg.tEnd, d: seg.dEnd });
+    }
+    wx = await gpxWeather(samples);
+  }
+
+  let litres = 0, windAxSum = 0, windAxW = 0, rainMax = 0;
+  const f = condFactor();
+  for (const seg of segs) {
+    let v = seg.v;
+    if (v === null) v = hasTime ? null : 80; // sans horodatage : vitesse supposée 80 km/h
+    if (v === null || v < 3) continue;
+    const vc = Math.min(v, getMaxSpeed());
+    let grade = 0;
+    if (altS.length >= 2) {
+      const mid = (seg.dStart + seg.dEnd) / 2;
+      let a = altS[0], b = altS[altS.length - 1];
+      for (let i = 0; i < altS.length; i++) if (altS[i].d <= mid) a = altS[i];
+      for (let i = altS.length - 1; i >= 0; i--) if (altS[i].d >= mid) b = altS[i];
+      const dd = b.d - a.d;
+      if (dd > 0.3) grade = Math.max(-0.12, Math.min(0.12, (b.alt - a.alt) / (dd * 1000)));
+    }
+    const base = interp(curve, vc) * f;
+    const grEff = Math.max(gradeEffect(grade), -0.7 * base); // descente plafonnée au ralenti
+    let windAx = 0, rainMult = 1, wEff = 0;
+    if (wx.length) {
+      const mid = (seg.dStart + seg.dEnd) / 2;
+      let best = wx[0];
+      for (const w of wx) if (Math.abs(w.d - mid) < Math.abs(best.d - mid)) best = w;
+      windAx = best.wind * Math.cos((best.dir - seg.cap) * Math.PI / 180); // + = vent arrière
+      wEff = windEffect(vc, windAx);
+      rainMult = best.rain <= 0 ? 1 : (best.rain < 1 ? 1.05 : 1.12);
+      rainMax = Math.max(rainMax, best.rain);
+    }
+    litres += seg.d / 100 * Math.max(0.05, (base + grEff + wEff) * rainMult);
+    windAxSum += windAx * seg.d; windAxW += seg.d;
+  }
+
   let up = 0, down = 0;
   for (let i = 1; i < altS.length; i++) {
     const diff = altS[i].alt - altS[i - 1].alt;
@@ -2315,7 +2395,16 @@ function gpxCompute(txt, name, quiet) {
   const price = getPrice();
   const fpk = fixedPerKm();
   const fixed = fpk ? fpk.perKm * dist : 0;
-  const res = { dist, litres, dur, up, down, hasEle,
+  let wxTxt = "";
+  if (wxAsked && hasTime) {
+    wxTxt = wx.length
+      ? "Météo réelle incluse : vent axial moyen " + (windAxW > 0 ? fmt1(windAxSum / windAxW) : "0") + " km/h" +
+          (rainMax > 0 ? " · pluie relevée en route" : "")
+      : "Météo demandée mais indisponible (Open-Meteo injoignable ou période hors archive)";
+  } else if (!hasTime) {
+    wxTxt = "Trace sans horodatage : vitesse supposée 80 km/h, météo ignorée";
+  }
+  const res = { dist, litres, dur, up, down, hasEle, wxTxt,
     avg: litres / dist * 100,
     fuel: price > 0 ? litres * price : 0,
     fixed, price,
@@ -2332,6 +2421,7 @@ function gpxCompute(txt, name, quiet) {
     el("gpxDown").textContent = hasEle ? fmt1(down) + " m" : "sans alt.";
     el("gpxAvg").textContent = fmt1(res.avg) + " L/100";
     el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
+    el("gpxWx").textContent = wxTxt;
     el("gpxSave").style.display = "block";
     el("gpxSave").disabled = false;
     el("gpxSave").textContent = "💾 Enregistrer ce trajet";
@@ -2365,9 +2455,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.6 bêta";
+const APP_VERSION = "v2.7 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
+    "Import GPX (suite) : météo réelle de la trace — vent et pluie d'archive Open-Meteo aux positions et heures des points (jusqu'à 8 relevés), interrupteur 🌤️ pour l'activer · sans horodatage : vitesse supposée 80 km/h · pied de page : mention de l'outil de développement."],
+  ["v2.6 bêta · 28/10/2026",
     "Import GPX : nouveau tiroir 📥 — dossier des traces mémorisé (Chrome/Edge), bouton « Chercher des nouvelles traces » listant les .gpx non importés, sélection manuelle multi-fichiers ailleurs · coût calculé tronçon par tronçon avec la vraie vitesse et les vraies altitudes de la trace · onglet Temps réel déplacé en bas de la page."],
   ["v2.5 bêta · 27/10/2026",
     "Ergonomie : date de départ pré-remplie avec le jour (libellé simplifié) · boutons « i » placés en fin de ligne (Poids transporté, Météo réelle, Calculer le coût, Coûts fixes, Sauvegarde, Pleins) · le « i » du mode Temps réel est dans son titre · les aides GPS (distance à 0, météo en temps réel) rejoignent la section Aide."],
@@ -2402,7 +2494,7 @@ el("clBg").addEventListener("click", (e) => {
 });
 
 /* ---------- Infobulles → modale ---------- */
-const INFOS = {"info13":["📥 GPX : importer une trace","<b>Principe</b> : une appli d'enregistrement (ex. GPS Logger, open source, F-Droid) écrit des traces .gpx sur le téléphone pendant que tu conduis ; ici, tu rejoues la trace et le coût est calculé.<br><b>Dossier</b> : « Choisir le dossier » (Chrome/Edge sur ordinateur) mémorise l'emplacement des traces sur cet appareil. « Chercher des nouvelles traces » relit ce dossier et n'affiche que les fichiers .gpx pas encore enregistrés ; le nom d'un fichier déjà importé n'y revient plus. Sur Firefox, Safari ou mobile, le choix d'un dossier n'est pas disponible : utilise la sélection manuelle (plusieurs fichiers possibles, chacun est enregistré dans l'historique).<br><b>Calcul</b> : conso par tronçon = courbe(vitesse réelle entre 2 points, plafonnée par ta vitesse max) + effet pente (altitudes réelles de la trace, ±1 % ≈ ±1,35 L/100km pour 1200 kg, descente plafonnée au ralenti). Vent et pluie ne sont pas comptés (météo a posteriori indisponible). Coût = carburant + coûts fixes au km ; le trajet rejoint l'historique avec sa date et son heure réelles."],"info1":["Effet du poids","Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km."],"info2":["Comment ce calcul est fait","Chaque sous-trajet : litres = distance ÷ 100 × conso. Carburant = litres × prix du litre\n(réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).\nCe mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel."],"info3":["Quelques dates fonctionnent ?","Sans date : météo actuelle. Date passée : archive Open-Meteo.\nDate future ≤ 16 jours : prévisions. Au-delà : impossible."],"info4":["Comment ce calcul est fait","Par tronçon : conso = courbe(vitesse) + effet pente + effet vent, × effet pluie.\n<br>• <b>Vitesse</b> : estimée par OSRM, plafonnée par votre « vitesse max ».\n<br>• <b>Pente</b> : altitudes Open-Meteo le long du tracé. ±1 % de pente ≈ ±1,35 L/100km\npour 1200 kg (force = m·g·pente ; énergie essence 32,2 MJ/L ; rendement 27 %).\n<br>• <b>Vent</b> : surcroît aérodynamique ½·ρ·CdA·(v_rel²−v²) avec le vent projeté sur l'axe\ndu trajet (ex. 25 km/h de face à 90 km/h ≈ +1,8 L/100km).\n<br>• <b>Pluie</b> : +5 % (faible) ou +12 % (forte) — routes mouillées, climatisation.\n<br>Le résultat détaille la part de chaque effet."],"info5":["La distance reste à 0 ?","La distance et la conso ne sont comptées qu'avec un signal précis (&lt; 30 m) et une vitesse GPS.\nUne précision de ~2000 m signifie que le téléphone n'a pas de fix satellite (position « réseau »).\nVérifiez la <b>position précise</b> du navigateur (iOS : Réglages &gt; Confidentialité &gt; Service de localisation ;\nAndroid : autorisation de position « Précise »), placez-vous à l'extérieur et laissez le GPS se caler 1–2 min."],"info6":["Météo en temps réel","Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé\n(altitude relevée tous les 2 km) pour corriger la consommation instantanée."],"info7":["Comment ce calcul est fait","Conso instantanée = courbe(vitesse GPS) + effet pente (altitudes relevées tous les 2 km)\n+ effet vent (météo à votre position, projetée sur votre cap GPS), × effet pluie.\nLe carburant du trajet est la somme distance × conso de chaque instant.\nLe GPS est lissé en ville : à l'arrêt la consommation affichée est celle du dernier instant valide."],"info8":["Réconciliation avec l'historique","Entre deux pleins complets, les trajets cochés de l'historique sont\nrecalibrés sur les litres réellement consommés, au prix au litre du plein précédent."],"info9":["Comment sont calculés les coûts fixes","Chaque dépense (assurance, entretien, réparation…) est divisée\npar sa durée de lissage (en mois ou en an(s)) et comptée seulement entre sa date et la fin\nde l'amortissement — saisis ton assurance chaque année, lissée sur 1 an.\nCoche « Dépense mensuelle » pour un montant payé chaque mois (compté 12 mois/an).\nLe tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés\nd'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au\ncoût de chaque trajet enregistré."],"info10":["Export / import","Exporte tout (historique, destinations, réglages, courbes) dans un fichier\nJSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil."],"info11":["🚀 Comment démarrer ?","<b>Les 3 modes de calcul (tuile 🛣️ Manuel) :</b><br>\n• 🗺️ <b>Adresse</b> : départ → arrivée, avec arrêt intermédiaire optionnel. Itinéraire réel, vitesse estimée, pente (altitudes), vent et météo le long du tracé.<br>\n• 📏 <b>Distance</b> : tu saisis un ou plusieurs sous-trajets en km, avec péage éventuel. Simple, sans Internet.<br>\n• 📍 <b>Temps réel</b> (tuile GPS) : lance le suivi pendant que tu conduis. Conso instantanée selon ta vitesse, la pente (mesurée par altitude adaptative), le vent et la pluie. Bouton 🎯 pour calibrer la courbe sur ton ordinateur de bord.<br>\n<b>Suivre sa consommation réelle :</b> enregistre chaque plein dans ⛽ Pleins d'essence (litres, prix au litre, km compteur). Les trajets enregistrés entre deux pleins sont automatiquement réconciliés (badge « ajusté ×k ») : l'estimation est mise à l'échelle de ta consommation réelle.<br>\n<b>Coûts fixes (assurance, entretien…) :</b> dans 🚗 Mon véhicule, saisis chaque dépense avec sa date et sa durée de lissage — en mois ou en an(s) — ou coche « dépense mensuelle » pour un montant payé chaque mois. Le tout, divisé par tes km/an (relevés de compteur ou valeur manuelle), donne un coût fixe au km ajouté à chaque trajet. Pour l'assurance annuelle : une entrée par an, lissée sur 1 an.<br>\n<b>Prix et réglages :</b> ⚙️ Préférences (prix du litre, conditions, export/import de sauvegarde).<br>\n<b>Historique :</b> chaque trajet peut être renommé et daté (ouvre son détail, clique sur le titre ou la date), coché pour la réconciliation, avec totaux sans/avec coûts fixes."],"info12":["Les formules utilisées","<b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).\nMontée +1 %, 1200 kg ≈ +1,35 L/100km ; en descente l'injection coupée limite l'économie à −70 % de la conso de base (≈ ralenti).\n<br><b>Vent</b> : surcroît = ½·1,2·CdA·(v_rel²−v²)·v, v_rel = vitesse ± vent axial.\n25 km/h de face à 90 ≈ +1,8 L/100km ; vent arrière : économie symétrique.\n<br><b>Pluie</b> : +5 % faible, +12 % forte (modèle : résistance de roulement mouillé + climatisation).\n<br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;\nun point étalonné remplace toute estimation à cette vitesse."]};
+const INFOS = {"info13":["📥 GPX : importer une trace","<b>Principe</b> : une appli d'enregistrement (ex. GPS Logger, open source, F-Droid) écrit des traces .gpx sur le téléphone pendant que tu conduis ; ici, tu rejoues la trace et le coût est calculé.<br><b>Dossier</b> : « Choisir le dossier » (Chrome/Edge sur ordinateur) mémorise l'emplacement des traces sur cet appareil. « Chercher des nouvelles traces » relit ce dossier et n'affiche que les fichiers .gpx pas encore enregistrés ; le nom d'un fichier déjà importé n'y revient plus. Sur Firefox, Safari ou mobile, le choix d'un dossier n'est pas disponible : utilise la sélection manuelle (plusieurs fichiers possibles, chacun est enregistré dans l'historique).<br><b>Calcul</b> : conso par tronçon = courbe(vitesse réelle entre 2 points, plafonnée par ta vitesse max) + effet pente (altitudes réelles de la trace, ±1 % ≈ ±1,35 L/100km pour 1200 kg, descente plafonnée au ralenti). Vent et pluie : si la trace contient dates et heures (GPX de GPS Logger : oui), la météo réelle au moment du passage est lue dans l'archive Open-Meteo (jusqu'à 8 relevés le long du trajet, interrupteur pour désactiver) ; sans horodatage, la vitesse est supposée 80 km/h et la météo est ignorée. Coût = carburant + coûts fixes au km ; le trajet rejoint l'historique avec sa date et son heure réelles."],"info1":["Effet du poids","Le total alimente l'effet de la pente : ±1 % ≈ ±(masse/1000 × 1,13) L/100km."],"info2":["Comment ce calcul est fait","Chaque sous-trajet : litres = distance ÷ 100 × conso. Carburant = litres × prix du litre\n(réglé dans ⚙️ Réglages). Le péage accepte les additions (ex. « 23,9+12,6 » → 36,50 €).\nCe mode ignore pente, vent et météo — ils ne s'appliquent qu'aux modes Itinéraire et Temps réel."],"info3":["Quelques dates fonctionnent ?","Sans date : météo actuelle. Date passée : archive Open-Meteo.\nDate future ≤ 16 jours : prévisions. Au-delà : impossible."],"info4":["Comment ce calcul est fait","Par tronçon : conso = courbe(vitesse) + effet pente + effet vent, × effet pluie.\n<br>• <b>Vitesse</b> : estimée par OSRM, plafonnée par votre « vitesse max ».\n<br>• <b>Pente</b> : altitudes Open-Meteo le long du tracé. ±1 % de pente ≈ ±1,35 L/100km\npour 1200 kg (force = m·g·pente ; énergie essence 32,2 MJ/L ; rendement 27 %).\n<br>• <b>Vent</b> : surcroît aérodynamique ½·ρ·CdA·(v_rel²−v²) avec le vent projeté sur l'axe\ndu trajet (ex. 25 km/h de face à 90 km/h ≈ +1,8 L/100km).\n<br>• <b>Pluie</b> : +5 % (faible) ou +12 % (forte) — routes mouillées, climatisation.\n<br>Le résultat détaille la part de chaque effet."],"info5":["La distance reste à 0 ?","La distance et la conso ne sont comptées qu'avec un signal précis (&lt; 30 m) et une vitesse GPS.\nUne précision de ~2000 m signifie que le téléphone n'a pas de fix satellite (position « réseau »).\nVérifiez la <b>position précise</b> du navigateur (iOS : Réglages &gt; Confidentialité &gt; Service de localisation ;\nAndroid : autorisation de position « Précise »), placez-vous à l'extérieur et laissez le GPS se caler 1–2 min."],"info6":["Météo en temps réel","Vent et pluie réels à votre position (Open-Meteo), combinés avec le dénivelé\n(altitude relevée tous les 2 km) pour corriger la consommation instantanée."],"info7":["Comment ce calcul est fait","Conso instantanée = courbe(vitesse GPS) + effet pente (altitudes relevées tous les 2 km)\n+ effet vent (météo à votre position, projetée sur votre cap GPS), × effet pluie.\nLe carburant du trajet est la somme distance × conso de chaque instant.\nLe GPS est lissé en ville : à l'arrêt la consommation affichée est celle du dernier instant valide."],"info8":["Réconciliation avec l'historique","Entre deux pleins complets, les trajets cochés de l'historique sont\nrecalibrés sur les litres réellement consommés, au prix au litre du plein précédent."],"info9":["Comment sont calculés les coûts fixes","Chaque dépense (assurance, entretien, réparation…) est divisée\npar sa durée de lissage (en mois ou en an(s)) et comptée seulement entre sa date et la fin\nde l'amortissement — saisis ton assurance chaque année, lissée sur 1 an.\nCoche « Dépense mensuelle » pour un montant payé chaque mois (compté 12 mois/an).\nLe tout est divisé par tes km/an (relevés si ≥ 2 relevés espacés\nd'au moins 7 jours, sinon valeur manuelle). Le résultat en €/km est ajouté au\ncoût de chaque trajet enregistré."],"info10":["Export / import","Exporte tout (historique, destinations, réglages, courbes) dans un fichier\nJSON. L'import restaure ce fichier et remplace les données actuelles de l'appareil."],"info11":["🚀 Comment démarrer ?","<b>Les 3 modes de calcul (tuile 🛣️ Manuel) :</b><br>\n• 🗺️ <b>Adresse</b> : départ → arrivée, avec arrêt intermédiaire optionnel. Itinéraire réel, vitesse estimée, pente (altitudes), vent et météo le long du tracé.<br>\n• 📏 <b>Distance</b> : tu saisis un ou plusieurs sous-trajets en km, avec péage éventuel. Simple, sans Internet.<br>\n• 📍 <b>Temps réel</b> (tuile GPS) : lance le suivi pendant que tu conduis. Conso instantanée selon ta vitesse, la pente (mesurée par altitude adaptative), le vent et la pluie. Bouton 🎯 pour calibrer la courbe sur ton ordinateur de bord.<br>\n<b>Suivre sa consommation réelle :</b> enregistre chaque plein dans ⛽ Pleins d'essence (litres, prix au litre, km compteur). Les trajets enregistrés entre deux pleins sont automatiquement réconciliés (badge « ajusté ×k ») : l'estimation est mise à l'échelle de ta consommation réelle.<br>\n<b>Coûts fixes (assurance, entretien…) :</b> dans 🚗 Mon véhicule, saisis chaque dépense avec sa date et sa durée de lissage — en mois ou en an(s) — ou coche « dépense mensuelle » pour un montant payé chaque mois. Le tout, divisé par tes km/an (relevés de compteur ou valeur manuelle), donne un coût fixe au km ajouté à chaque trajet. Pour l'assurance annuelle : une entrée par an, lissée sur 1 an.<br>\n<b>Prix et réglages :</b> ⚙️ Préférences (prix du litre, conditions, export/import de sauvegarde).<br>\n<b>Historique :</b> chaque trajet peut être renommé et daté (ouvre son détail, clique sur le titre ou la date), coché pour la réconciliation, avec totaux sans/avec coûts fixes."],"info12":["Les formules utilisées","<b>Pente</b> : force F = m·g·pente. Litres/100km = m·9,81·pente ÷ (32,2 MJ/L × 27 %).\nMontée +1 %, 1200 kg ≈ +1,35 L/100km ; en descente l'injection coupée limite l'économie à −70 % de la conso de base (≈ ralenti).\n<br><b>Vent</b> : surcroît = ½·1,2·CdA·(v_rel²−v²)·v, v_rel = vitesse ± vent axial.\n25 km/h de face à 90 ≈ +1,8 L/100km ; vent arrière : économie symétrique.\n<br><b>Pluie</b> : +5 % faible, +12 % forte (modèle : résistance de roulement mouillé + climatisation).\n<br><b>Étalonnage</b> : le tableau de bord mesure la vraie consommation instantanée du calculateur ;\nun point étalonné remplace toute estimation à cette vitesse."]};
 document.addEventListener("click", (e) => {
   const b = e.target && e.target.closest ? e.target.closest("[data-info]") : null;
   if (!b) return;
