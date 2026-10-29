@@ -284,6 +284,10 @@
       <span class="tlabel">🌤️ Météo réelle de la trace (dates et heures du GPX)</span>
       <label class="switch"><input type="checkbox" id="wxGpx" checked><span class="slider"></span></label>
     </div>
+    <div class="toggle">
+      <span class="tlabel">⛰️ Altitudes du MNT (préférence) à la place de celles du fichier</span>
+      <label class="switch"><input type="checkbox" id="altGpx"><span class="slider"></span></label>
+    </div>
 
     <div class="result" id="gpxResult" style="display:none;">
       <div class="amount" id="gpxCost"></div>
@@ -459,6 +463,13 @@
     <label for="price">Prix du litre</label>
     <div class="unit"><input id="price" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,75"><span>€/L</span></div>
 
+    <h2>⛰️ Source des altitudes</h2>
+    <select id="elevSrc">
+      <option value="ign">IGN — RGE ALTI (précis, France)</option>
+      <option value="cop">Copernicus GLO-90 — Open-Meteo (monde)</option>
+    </select>
+    <div class="hint">Utilisée pour les pentes des modes Adresse et Temps réel, et pour remplacer les altitudes d'une trace GPX (option de l'import). Si la source choisie est indisponible, l'autre prend le relais.</div>
+
     <h2>🌤️ Conditions manuelles (multiplicateurs)</h2>
     <div id="conds"></div>
     <button class="btn gray" id="addCond">+ Ajouter une condition</button>
@@ -556,7 +567,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.17 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.18 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -727,6 +738,10 @@ el("fuelType").addEventListener("change", () => {
   store.set("trajet_fuelType", fuelType);
 });
 const getFuel = () => FUELS[fuelType];
+{ const esv = store.get("trajet_elevSrc");
+  el("elevSrc").value = (esv === "cop" || esv === "ign") ? esv : "ign";
+  el("elevSrc").addEventListener("change", () => store.set("trajet_elevSrc", el("elevSrc").value)); }
+const elevSrc = () => store.get("trajet_elevSrc") === "cop" ? "cop" : "ign";
 const co2PerL = () => getFuel().comb + getFuel().amont;
 const co2Total = (L) => L * co2PerL();
 const fmtCo2 = (kg) => kg >= 1 ? fmt1(kg) + " kg" : Math.round(kg * 1000) + " g";
@@ -1091,13 +1106,42 @@ async function getRoute(a, b, vias) {
   if (d.code !== "Ok" || !d.routes || !d.routes.length) throw new Error("itinéraire introuvable entre ces points");
   return d.routes[0];
 }
-async function getElevations(coords) {
-  const N = Math.min(100, Math.max(2, Math.round(coords.length / 10)));
+async function ignElevation(lats, lons) {
+  const out = [];
+  for (let i = 0; i < lats.length; i += 50) {
+    const la = lats.slice(i, i + 50), lo = lons.slice(i, i + 50);
+    const url = "https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?lon=" +
+      lo.join("%7C") + "&lat=" + la.join("%7C") +
+      "&resource=ign_rge_alti_wld&delimiter=%7C&indent=false&measures=false&zonly=true";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("service IGN indisponible");
+    const d = await r.json();
+    let vals = d;
+    if (!Array.isArray(d) && Array.isArray(d.elevations)) vals = d.elevations;
+    else if (!Array.isArray(d) && Array.isArray(d.elevation)) vals = d.elevation;
+    if (!Array.isArray(vals)) throw new Error("altitudes IGN illisibles");
+    vals.forEach(v => out.push(typeof v === "number" ? v : (v ? (v.z != null ? v.z : v.altitude) : NaN)));
+  }
+  if (out.length !== lats.length || out.some(e => typeof e !== "number" || isNaN(e)))
+    throw new Error("altitudes IGN illisibles");
+  return out;
+}
+async function getElevations(coords, allPoints) {
+  const N = allPoints ? coords.length : Math.min(100, Math.max(2, Math.round(coords.length / 10)));
   const lats = [], lons = [];
   for (let i = 0; i < N; i++) {
     const c = coords[Math.min(coords.length - 1, Math.round(i * (coords.length - 1) / (N - 1)))];
     lats.push(c[1].toFixed(5));
     lons.push(c[0].toFixed(5));
+  }
+  if (elevSrc() !== "cop") {
+    try {
+      const e = await ignElevation(lats, lons);
+      getElevations.lastSrc = "ign";
+      return e;
+    } catch (err) {
+      try { setStatus("Altitudes IGN indisponibles (" + err.message + ") — bascule sur Copernicus."); } catch (e2) {}
+    }
   }
   const url = "https://api.open-meteo.com/v1/elevation?latitude=" + lats.join(",") +
     "&longitude=" + lons.join(",");
@@ -1112,6 +1156,7 @@ async function getElevations(coords) {
   if (!elevs || !elevs.length || elevs.some(e => typeof e !== "number" || isNaN(e))) {
     throw new Error("altitudes illisibles");
   }
+  getElevations.lastSrc = "cop";
   return elevs;
 }
 function computeGrades(elevs, totalKm) {
@@ -1450,6 +1495,12 @@ let gpsTrip = null;
 const gStatus = (m, err) => { el("gpsStatus").textContent = m; el("gpsStatus").className = "status" + (err ? " err" : ""); };
 
 async function rtElevation(lat, lon) {
+  if (elevSrc() !== "cop") {
+    try {
+      const v = await ignElevation([lat.toFixed(5)], [lon.toFixed(5)]);
+      if (v.length && typeof v[0] === "number" && !isNaN(v[0])) return v[0];
+    } catch (e) {}
+  }
   const r = await fetch("https://api.open-meteo.com/v1/elevation?latitude=" +
     lat.toFixed(5) + "&longitude=" + lon.toFixed(5));
   if (!r.ok) throw new Error("évation indisponible");
@@ -2418,7 +2469,7 @@ async function gpxCompute(txt, name, quiet) {
   let pts;
   try { pts = gpxParse(txt); }
   catch (e) { if (!quiet) gSetStatus("« " + name + " » : " + e.message, true); return null; }
-  const hasEle = pts.some(p => p.ele !== null && isFinite(p.ele));
+  let hasEle = pts.some(p => p.ele !== null && isFinite(p.ele));
   const hasTime = pts[0].t !== null && pts[pts.length - 1].t !== null;
   const segs = [];
   const altS = []; // altitudes relevées tous les 200 m
@@ -2442,6 +2493,31 @@ async function gpxCompute(txt, name, quiet) {
     prev = p;
   }
   if (dist < 0.05) { if (!quiet) gSetStatus("« " + name + " » : trace quasi immobile, rien à calculer.", true); return null; }
+
+  /* Altitudes du MNT (IGN ou Copernicus selon préférence) à la place de celles du fichier */
+  let altUsed = false;
+  if (el("altGpx").checked) {
+    const step = Math.max(0.2, dist / 150);
+    const nS = Math.min(201, Math.max(2, Math.ceil(dist / step) + 1));
+    const samp = [];
+    for (let i = 0; i < nS; i++) {
+      const dd = dist * i / (nS - 1);
+      const sg = segs.find(sg => sg.dEnd >= dd) || segs[segs.length - 1];
+      samp.push([sg.lon, sg.lat]);
+    }
+    if (!quiet) gSetStatus("Altitudes MNT : interrogation du service d'élévation…");
+    try {
+      const elevs = await getElevations(samp, true);
+      if (elevs && elevs.length === samp.length) {
+        altS.length = 0;
+        for (let i = 0; i < samp.length; i++) altS.push({ d: dist * i / (nS - 1), alt: elevs[i] });
+        hasEle = true;
+        altUsed = true;
+      }
+    } catch (e) {
+      if (!quiet) gSetStatus("Altitudes MNT indisponibles — celles du fichier GPX sont conservées.");
+    }
+  }
 
   /* Météo réelle : vent et pluie d'archive/prévision aux positions et heures du GPX */
   let wx = [];
@@ -2554,7 +2630,9 @@ async function gpxCompute(txt, name, quiet) {
     el("gpxDown").textContent = hasEle ? fmt1(down) + " m" : "sans alt.";
     el("gpxAvg").textContent = fmt1(res.avg) + " L/100";
     el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
-    el("gpxWx").textContent = wxTxt;
+    el("gpxWx").textContent =
+      (altUsed ? "Altitudes : " + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") +
+        (wxTxt ? "\n" : "") : "") + wxTxt;
     el("gpxSave").style.display = "block";
     el("gpxSave").disabled = false;
     el("gpxSave").textContent = "💾 Enregistrer ce trajet";
@@ -2587,10 +2665,13 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.17 bêta";
+const APP_VERSION = "v2.18 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
     "🌬️ Effets vent/pente affichés avec 2 décimales (historique, détail du trajet, résultat GPX et détail Itinéraire) — les petites valeurs comme un dénivelé net de −200 m ne disparaissent plus derrière un « 0,0 L »."],
+  ["v2.18 bêta" + " · 29/10/2026",
+    "⛰️ Source d'altitude au choix dans ⚙️ Préférences : IGN RGE ALTI (défaut, MNT français précis) ou Copernicus GLO-90 — utilisée pour les pentes des modes Adresse et Temps réel · import GPX : nouvelle option « altitudes du MNT à la place de celles du fichier » · secours automatique sur l'autre source en cas d'indisponibilité."],
+
   ["v2.17 bêta" + " · 29/10/2026",
     "🧹 Fiche trajet réorganisée sans doublons (GPX : description, fichier, puis distance · conso · dénivelé, puis coûts) · liste d'historique épurée : effets vent/pente retirés de l'aperçu · effets à ~0 L masqués · 📈 les imports GPX enregistrent désormais leur profil : le graphique altitude / vitesse / consommation s'affiche dans le détail."],
 
