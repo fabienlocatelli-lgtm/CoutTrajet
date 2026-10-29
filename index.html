@@ -588,7 +588,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.21 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.22 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -1474,15 +1474,18 @@ el("calcRoute").addEventListener("click", async () => {
     el("amount2").dataset.val = String(total);
     const durMinR = times / 60 * distMult;
     const durTxtR = durMinR >= 60 ? Math.floor(durMinR / 60) + " h " + Math.round(durMinR % 60) + " min" : Math.round(durMinR) + " min";
-    let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + durTxtR + " · " + fmt1(totalL2) +
-      " L · moyenne " + fmt1(avgConso) + " L/100 · carburant " + fmt(fuel);
-    if (toll > 0) detail += " · péage " + fmt(toll);
-    if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
-    detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
-      " · pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope * distMult) + " L" +
+    let detail = "🛣️ " + fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") +
+      " · ⏱️ " + durTxtR +
+      " · ⛽ " + fmt1(totalL2) + " L" +
+      " · 📊 " + fmt1(avgConso) + " L/100" +
+      " · 💶 " + fmt(fuel);
+    if (toll > 0) detail += " · 🛂 " + fmt(toll);
+    if (fixedR > 0) detail += " · 🔧 " + fmt(fixedR);
+    detail += "\n🧮 Base " + fmt1(Lbase * distMult) + " L" +
+      " · ⛰️ pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope * distMult) + " L" +
       (elevs ? " (" + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") + ")" : "") +
-      " · vent " + (Lwind >= 0 ? "+" : "") + fmt2(Lwind * distMult) + " L" +
-      " · pluie +" + fmt2(LrainExtra * distMult) + " L";
+      " · 🌬️ vent " + (Lwind >= 0 ? "+" : "") + fmt2(Lwind * distMult) + " L" +
+      " · 🌧️ pluie +" + fmt2(LrainExtra * distMult) + " L";
     if (elevs && elevs.length > 1) {
       const netM = upM - downM;
       detail += "\n⛰️ Dénivelé : +" + fmt1(upM) + " / −" + fmt1(downM) +
@@ -1491,8 +1494,8 @@ el("calcRoute").addEventListener("click", async () => {
     if (maxSp > 110 && L110 > 0) {
       const saveL = (totalL - L110) * distMult;
       if (Math.abs(saveL) >= 0.01)
-        detail += "\nÀ 110 km/h max : " + fmt1(L110 * distMult) + " L — " +
-          (saveL >= 0 ? "économie" : "surcoût") + " de " + fmt(Math.abs(saveL) * price) + " € sur le carburant";
+        detail += "\n🚗 À 110 km/h max : " + fmt1(L110 * distMult) + " L · " +
+          (saveL >= 0 ? "économie" : "surcoût") + " de " + fmt(Math.abs(saveL) * price) + " sur le carburant";
     }
     el("detail2").textContent = detail;
 
@@ -2727,8 +2730,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.21 bêta";
+const APP_VERSION = "v2.22 bêta";
 const CHANGELOG = [
+  ["v2.22 bêta" + " · 29/10/2026",
+    "🎨 Itinéraire : résultat remis en forme — chaque donnée a son icône (🛣️ distance · ⏱️ durée · ⛽ litres · 📊 moyenne · 💶 carburant · 🛂 péage · 🔧 coûts fixes, puis 🧮 base · ⛰️ pente · 🌬️ vent · 🌧️ pluie) avec un séparateur unique « · » · correctif : le « € » de l'économie à 110 km/h était doublé."],
+
   ["v2.21 bêta" + " · 29/10/2026",
     "🚗 Itinéraire : correction du relèvement de vitesse sur autoroute — OSRM annote l'autoroute à ≈104-106 km/h et non ≈110, le relèvement à ta vitesse max se déclenche désormais dès 100 km/h ; avec une vitesse max réglée à 130, le graphique montre bien 130 et l'économie à 110 km/h s'affiche."],
 
