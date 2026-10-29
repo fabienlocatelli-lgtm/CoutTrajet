@@ -588,7 +588,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.22 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.23 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -1495,7 +1495,8 @@ el("calcRoute").addEventListener("click", async () => {
       const saveL = (totalL - L110) * distMult;
       if (Math.abs(saveL) >= 0.01)
         detail += "\n🚗 À 110 km/h max : " + fmt1(L110 * distMult) + " L · " +
-          (saveL >= 0 ? "économie" : "surcoût") + " de " + fmt(Math.abs(saveL) * price) + " sur le carburant";
+          (saveL >= 0 ? "économie" : "surcoût") + " de " + fmt(Math.abs(saveL) * price) +
+          " · " + (saveL >= 0 ? "−" : "+") + fmtCo2(Math.abs(saveL) * co2PerL()) + "CO₂e sur le carburant";
     }
     el("detail2").textContent = detail;
 
@@ -2591,7 +2592,7 @@ async function gpxCompute(txt, name, quiet) {
     wx = await gpxWeather(samples);
   }
 
-  let litres = 0, windAxSum = 0, windAxW = 0, rainMax = 0, Lslope = 0, Lwind = 0;
+  let litres = 0, windAxSum = 0, windAxW = 0, rainMax = 0, Lslope = 0, Lwind = 0, L110 = 0;
   const f = condFactor();
   const altAtD = (d) => {
     if (!altS.length) return null;
@@ -2633,6 +2634,12 @@ async function gpxCompute(txt, name, quiet) {
       rainMax = Math.max(rainMax, best.rain);
     }
     const segC = Math.max(0.05, (base + grEff + wEff) * rainMult);
+    if (getMaxSpeed() > 110 && vc > 110) { // simulation : conso si la vitesse était plafonnée à 110
+      const base110 = interp(curve, 110) * f;
+      const grEff110 = Math.max(gradeEffect(grade), -0.7 * base110);
+      const wEff110 = windEffect(110, windAx);
+      L110 += seg.d / 100 * Math.max(0.05, (base110 + grEff110 + wEff110) * rainMult);
+    }
     Lslope += seg.d / 100 * grEff;
     Lwind += seg.d / 100 * wEff;
     litres += seg.d / 100 * segC;
@@ -2680,11 +2687,12 @@ async function gpxCompute(txt, name, quiet) {
     const durMinG = dur / 60;
     const durTxtG = durMinG >= 60 ? Math.floor(durMinG / 60) + " h " + Math.round(durMinG % 60) + " min"
       : (durMinG > 0 ? Math.round(durMinG) + " min" : "");
-    let dG = fmt1(dist) + " km" + (durTxtG ? " · " + durTxtG : "") + " · " + fmt1(litres) + " L · moyenne " + fmt1(res.avg) + " L/100" +
-      (price > 0 ? " · carburant " + fmt(res.fuel) : "");
-    if (res.toll > 0) dG += " · péage " + fmt(res.toll);
-    if (fixed > 0) dG += " · coûts fixes " + fmt(fixed);
-    dG += "\nDétail : pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
+    let dG = "🛣️ " + fmt1(dist) + " km" + (durTxtG ? " · ⏱️ " + durTxtG : "") +
+      " · ⛽ " + fmt1(litres) + " L · 📊 " + fmt1(res.avg) + " L/100" +
+      (price > 0 ? " · 💶 " + fmt(res.fuel) : "");
+    if (res.toll > 0) dG += " · 🛂 " + fmt(res.toll);
+    if (fixed > 0) dG += " · 🔧 " + fmt(fixed);
+    dG += "\n🧮 Détail : ⛰️ pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · 🌬️ vent " +
       (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L";
     if (hasEle) {
       const netM = up - down;
@@ -2692,6 +2700,14 @@ async function gpxCompute(txt, name, quiet) {
         (netM >= 0 ? "+" : "−") + fmt1(Math.abs(netM)) + " m" +
         (altUsed ? " (" + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") + ")"
                  : " (trace GPS)");
+    }
+    if (getMaxSpeed() > 110 && L110 > 0) {
+      const saveL = litres - L110;
+      if (Math.abs(saveL) >= 0.01)
+        dG += "\n🚗 À 110 km/h max : " + fmt1(L110) + " L · " +
+          (saveL >= 0 ? "économie" : "surcoût") + " de " +
+          (price > 0 ? fmt(Math.abs(saveL) * price) + " · " : "") +
+          (saveL >= 0 ? "−" : "+") + fmtCo2(Math.abs(saveL) * co2PerL()) + "CO₂e sur le carburant";
     }
     el("gpxDetail").textContent = dG;
     el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
@@ -2730,8 +2746,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.22 bêta";
+const APP_VERSION = "v2.23 bêta";
 const CHANGELOG = [
+  ["v2.23 bêta" + " · 29/10/2026",
+    "🌍 Ligne « À 110 km/h max » (Itinéraire et GPX) : affiche aussi le CO₂e évité (ou surajouté), ex. « −2,4 kgCO₂e sur le carburant » · 📥 GPX : la simulation à 110 km/h est désormais calculée (tronçons réellement parcourus à plus de 110 km/h recalculés à 110, avec pente et vent) · 🎨 GPX : résultat remis en forme avec les mêmes icônes que l'Itinéraire (🛣️ ⏱️ ⛽ 📊 💶 🛂 🔧)."],
+
   ["v2.22 bêta" + " · 29/10/2026",
     "🎨 Itinéraire : résultat remis en forme — chaque donnée a son icône (🛣️ distance · ⏱️ durée · ⛽ litres · 📊 moyenne · 💶 carburant · 🛂 péage · 🔧 coûts fixes, puis 🧮 base · ⛰️ pente · 🌬️ vent · 🌧️ pluie) avec un séparateur unique « · » · correctif : le « € » de l'économie à 110 km/h était doublé."],
 
