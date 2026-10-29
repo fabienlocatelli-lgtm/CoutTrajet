@@ -556,7 +556,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.16 bêta · 28/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.17 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -1829,10 +1829,6 @@ function renderHistory() {
           (h.name ? '<div class="desc" style="color:#e2e8f0;">' + h.name + '</div>' : '') +
           '<div class="desc">' + (h.desc || "") + badge + '</div>' +
           (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
-          (h.wind != null || h.slope != null
-            ? '<div class="desc" style="color:#94a3b8;">🌬️ vent ' + (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) +
-              " L · ⛰️ pente " + (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L</div>"
-            : '') +
         '</div>' +
         '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;text-align:right;">' + fmt(cost) +
           ((h.fixed || 0) > 0
@@ -1931,7 +1927,7 @@ function saveEntry(mode, desc, total, conso, extra) {
     co2: extra.co2 || null,
     wind: extra.wind || null, slope: extra.slope || null,
     fixed: extra.fixed || 0, dist: extra.dist || 0, compte: true, adjusted: null,
-    full: extra.full || "", profile: extra.profile || null,
+    full: extra.full || "", profile: extra.profile || null, deniv: extra.deniv || null,
     oneWayKm: extra.oneWayKm || 0, name: extra.name || null, tripDate: extra.tripDate || null });
   saveHistory();
   reconcile();
@@ -2034,7 +2030,9 @@ function openDetail(h) {
     return;
   }
   el("mTitle").textContent = (h.name ? h.name + " · " : "") + h.mode + " — " + fmt(h.total);
-  el("mFull").textContent = h.full || h.desc || "";
+  let fullTxt = h.full || h.desc || "";
+  if (h.mode === "GPX") fullTxt = fullTxt.split("\n").slice(0, 2).join("\n");
+  el("mFull").textContent = fullTxt;
   const d = new Date(h.date);
   el("mDateLine").textContent = "📅 " +
     (h.tripDate
@@ -2044,7 +2042,7 @@ function openDetail(h) {
     "Enregistré le " + d.toLocaleDateString("fr-FR") + " à " +
     d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " ✏️";
   const parts = [];
-  if (h.fuel != null && h.fuel > 0) parts.push("⛽ Essence : " + fmt(h.fuel) +
+  if (h.fuel != null && h.fuel > 0) parts.push("⛽ Carburant : " + fmt(h.fuel) +
     (h.litres ? " (" + fmt1(h.litres) + " L)" : ""));
   if (h.toll > 0) parts.push("🛂 Péage : " + fmt(h.toll));
   if (h.co2) {
@@ -2052,14 +2050,23 @@ function openDetail(h) {
     parts.push("🌍 Émissions : " + fmtCo2(co2v) + "CO₂e (puits à la roue)" +
       (h.adjusted && h.adjusted.co2 && Math.abs(h.adjusted.k - 1) > 0.001 ? " — ajustée ×" + h.adjusted.k.toFixed(3) : ""));
   }
-  if (h.wind != null || h.slope != null) parts.push("🌬️ Effets sur ce trajet : vent " +
-    (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) + " L · pente " +
-    (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L");
+  if ((h.wind != null && Math.abs(h.wind) >= 0.005) || (h.slope != null && Math.abs(h.slope) >= 0.005))
+    parts.push("🌬️ Effets sur ce trajet : vent " + (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) +
+      " L · pente " + (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L");
   if (h.fixed > 0) parts.push("🔧 Coûts fixes véhicule : " + fmt(h.fixed));
   if (parts.length) parts.push("💰 Total : " + fmt(h.total));
-  el("mStats").textContent =
-    (h.conso ? "Conso : " + h.conso : "") + (h.desc ? (h.conso ? " · " : "") + h.desc : "") +
-    (parts.length ? "\n" + parts.join("\n") : "");
+  let den = null;
+  if (h.deniv) den = "⛰️ Dénivelé : +" + fmt1(h.deniv[0]) + " m / −" + fmt1(h.deniv[1]) + " m";
+  else {
+    const md = /dénivelé \+([0-9.,]+) \/ −([0-9.,]+) m/.exec(h.full || "");
+    if (md) den = "⛰️ Dénivelé : +" + md[1] + " m / −" + md[2] + " m";
+  }
+  const head = [];
+  if (h.dist > 0) head.push("📏 " + fmt1(h.dist) + " km");
+  if (h.conso) head.push("Conso : " + h.conso);
+  if (den) head.push(den);
+  el("mStats").textContent = head.join(" · ") +
+    (parts.length ? (head.length ? "\n" : "") + parts.join("\n") : "");
   el("mDateEdit").style.display = "none";
   el("mNameEdit").style.display = "none";
   mDateEditId = h.id;
@@ -2454,6 +2461,19 @@ async function gpxCompute(txt, name, quiet) {
 
   let litres = 0, windAxSum = 0, windAxW = 0, rainMax = 0, Lslope = 0, Lwind = 0;
   const f = condFactor();
+  const altAtD = (d) => {
+    if (!altS.length) return null;
+    if (d <= altS[0].d) return altS[0].alt;
+    for (let i = 1; i < altS.length; i++) if (altS[i].d >= d) {
+      const a = altS[i - 1], b = altS[i];
+      const fr = Math.min(1, Math.max(0, (d - a.d) / Math.max(b.d - a.d, 1e-6)));
+      return a.alt + (b.alt - a.alt) * fr;
+    }
+    return altS[altS.length - 1].alt;
+  };
+  const prof = [];
+  const profStep = Math.max(0.3, dist / 250);
+  let lastProfD = -1e9, lastV = 0, lastC = 0;
   for (const seg of segs) {
     let v = seg.v;
     if (v === null) v = hasTime ? null : 80; // sans horodatage : vitesse supposée 80 km/h
@@ -2480,12 +2500,21 @@ async function gpxCompute(txt, name, quiet) {
       rainMult = best.rain <= 0 ? 1 : (best.rain < 1 ? 1.05 : 1.12);
       rainMax = Math.max(rainMax, best.rain);
     }
+    const segC = Math.max(0.05, (base + grEff + wEff) * rainMult);
     Lslope += seg.d / 100 * grEff;
     Lwind += seg.d / 100 * wEff;
-    litres += seg.d / 100 * Math.max(0.05, (base + grEff + wEff) * rainMult);
+    litres += seg.d / 100 * segC;
+    lastV = vc; lastC = segC;
+    if (seg.dEnd - lastProfD >= profStep) {
+      prof.push({ d: +seg.dEnd.toFixed(3), v: +vc.toFixed(1), conso: +segC.toFixed(2),
+        alt: hasEle ? altAtD(seg.dEnd) : null });
+      lastProfD = seg.dEnd;
+    }
     windAxSum += windAx * seg.d; windAxW += seg.d;
   }
 
+  if (prof.length && dist - lastProfD > 0.05)
+    prof.push({ d: +dist.toFixed(3), v: lastV, conso: lastC, alt: hasEle ? altAtD(dist) : null });
   let up = 0, down = 0;
   for (let i = 1; i < altS.length; i++) {
     const diff = altS[i].alt - altS[i - 1].alt;
@@ -2504,7 +2533,7 @@ async function gpxCompute(txt, name, quiet) {
     wxTxt = "Trace sans horodatage : vitesse supposée 80 km/h, météo ignorée";
   }
   const res = { dist, litres, dur, up, down, hasEle, wxTxt,
-    slope: Lslope, wind: Lwind,
+    slope: Lslope, wind: Lwind, profile: prof, deniv: hasEle ? [up, down] : null,
     avg: litres / dist * 100,
     fuel: price > 0 ? litres * price : 0,
     fixed, price,
@@ -2515,8 +2544,10 @@ async function gpxCompute(txt, name, quiet) {
     el("gpxResult").style.display = "block";
     el("gpxCost").innerHTML = price > 0 ? fmt(res.cost) + co2Span(litres) : "— (prix ?)";
     el("gpxDetail").textContent = name.replace(/\.gpx$/i, "") + " · " + fmt1(litres) + " L" +
-      " (pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
-      (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L)";
+      (Math.abs(Lslope) >= 0.005 || Math.abs(Lwind) >= 0.005
+        ? " (pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
+          (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L)"
+        : "");
     el("gpxDist").textContent = fmt1(dist) + " km";
     el("gpxTime").textContent = dur > 60 ? Math.round(dur / 60) + " min" : (dur > 0 ? Math.round(dur) + " s" : "—");
     el("gpxUp").textContent = hasEle ? fmt1(up) + " m" : "sans alt.";
@@ -2538,14 +2569,10 @@ function gpxSave(res, name, fromDir) {
     fmt1(res.dist) + " km" + (mins > 0 ? " en " + mins + " min" : "") + " · trace GPS",
     res.cost,
     fmt1(res.avg) + " L/100 (trace GPS)",
-    { full: "Trajet importé d'une trace GPX\n" + name + "\n" +
-      fmt1(res.dist) + " km · " + fmt1(res.litres) + " L" +
-      (res.hasEle ? " · dénivelé +" + fmt1(res.up) + " / −" + fmt1(res.down) + " m" : "") +
-      "\nEffets : pente " + (res.slope >= 0 ? "+" : "") + fmt2(res.slope) + " L · vent " +
-      (res.wind >= 0 ? "+" : "") + fmt2(res.wind) + " L" +
-      (res.price > 0 ? "\nCoût carburant : " + fmt(res.fuel) : "\nPrix non renseigné"),
+    { full: "Trajet importé d'une trace GPX\n" + name,
       litres: res.litres, co2: co2Total(res.litres), fuel: res.price > 0 ? res.fuel : null, toll: 0,
-      wind: res.wind, slope: res.slope,
+      wind: res.wind, slope: res.slope, deniv: res.deniv || null,
+      profile: res.profile && res.profile.length ? res.profile : null, oneWayKm: res.dist,
       fixed: res.fixed, dist: res.dist, name: name.replace(/\.gpx$/i, ""),
       tripDate: res.t0 ? new Date(res.t0).toISOString() : null });
   if (fromDir) { gpxSeen.add(fromDir); gpxSaveSeen(); }
@@ -2560,10 +2587,13 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.16 bêta";
+const APP_VERSION = "v2.17 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
     "🌬️ Effets vent/pente affichés avec 2 décimales (historique, détail du trajet, résultat GPX et détail Itinéraire) — les petites valeurs comme un dénivelé net de −200 m ne disparaissent plus derrière un « 0,0 L »."],
+  ["v2.17 bêta" + " · 29/10/2026",
+    "🧹 Fiche trajet réorganisée sans doublons (GPX : description, fichier, puis distance · conso · dénivelé, puis coûts) · liste d'historique épurée : effets vent/pente retirés de l'aperçu · effets à ~0 L masqués · 📈 les imports GPX enregistrent désormais leur profil : le graphique altitude / vitesse / consommation s'affiche dans le détail."],
+
   ["v2.15 bêta" + " · 28/10/2026",
     "🌬️ Historique : effet du vent et de la pente enregistré pour chaque trajet Itinéraire et GPX (affiché sous la conso et dans le détail, ex. vent +0,1 L · pente −0,3 L) · GPX : le résultat affiche le détail pente/vent comme le mode Manuel · « i » du calcul déplacé après le sous-titre de connexion."],
   ["v2.14 bêta" + " · 28/10/2026",
