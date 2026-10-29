@@ -128,6 +128,12 @@
   <button id="demoExit" style="margin-left:8px;padding:4px 10px;border:none;border-radius:8px;background:#fff;color:#b45309;font-weight:700;cursor:pointer;">Quitter la démo</button>
 </div>
 
+<!-- Bandeau de démarrage (première utilisation), refermable -->
+<div id="tipBar" style="display:none;background:#0c2a3f;color:#e2e8f0;padding:10px 12px;margin:12px;text-align:center;font-size:.8rem;line-height:1.55;border:1px solid #38bdf8;border-radius:10px;">
+  👋 Bienvenue ! Commence par le prix du litre (⚙️ Préférences), puis 🛣️ Manuel ou 📥 Import GPX.
+  <button id="tipClose" style="margin-left:8px;padding:2px 8px;border:none;border-radius:8px;background:transparent;color:#94a3b8;font-weight:700;cursor:pointer;" title="Masquer ce bandeau">✕</button>
+</div>
+
 <!-- Carte poids transporté (toujours visible) -->
 <div class="card" id="loadCard">
   <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
@@ -588,7 +594,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.23 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.24 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2746,8 +2752,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.23 bêta";
+const APP_VERSION = "v2.24 bêta";
 const CHANGELOG = [
+  ["v2.24 bêta" + " · 29/10/2026",
+    "👋 Parcours de première utilisation : le conseil de démarrage (prix du litre, puis calcul) n'est plus un toast éphémère — c'est un bandeau fixe en haut de l'app, refermable avec « ✕ », qui reste affiché (même après rechargement) jusqu'à ce que tu le masques."],
+
   ["v2.23 bêta" + " · 29/10/2026",
     "🌍 Ligne « À 110 km/h max » (Itinéraire et GPX) : affiche aussi le CO₂e évité (ou surajouté), ex. « −2,4 kgCO₂e sur le carburant » · 📥 GPX : la simulation à 110 km/h est désormais calculée (tronçons réellement parcourus à plus de 110 km/h recalculés à 110, avec pente et vent) · 🎨 GPX : résultat remis en forme avec les mêmes icônes que l'Itinéraire (🛣️ ⏱️ ⛽ 📊 💶 🛂 🔧)."],
 
@@ -2928,8 +2937,15 @@ el("onboardDemo").addEventListener("click", () => {
 el("onboardStart").addEventListener("click", () => {
   el("onboardBg").classList.remove("show");
   if (store.get("trajet_history") === null) store.set("trajet_history", "[]"); // le parcours ne reviendra qu'après un reset
-  toast("Bienvenue ! Commence par le prix du litre (⚙️ Préférences), puis 🛣️ Manuel ou 📥 Import GPX.");
+  store.set("trajet_tipBar", "1");
+  showTipBar();
 });
+function showTipBar() { el("tipBar").style.display = "block"; }
+el("tipClose").addEventListener("click", () => {
+  store.set("trajet_tipBar", "");
+  el("tipBar").style.display = "none";
+});
+if (store.get("trajet_tipBar")) showTipBar();
 el("resetAll").addEventListener("click", () => {
   if (!confirm("Tout réinitialiser ?\nHistorique, pleins, réglages, courbes, destinations et traces importées seront effacés de cet appareil.\nLe parcours de première utilisation réapparaîtra au rechargement.")) return;
   demoKeys().forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
