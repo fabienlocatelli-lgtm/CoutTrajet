@@ -302,10 +302,6 @@
       <div class="amount" id="gpxCost"></div>
       <div class="detail" id="gpxDetail"></div>
     </div>
-    <table>
-      <tr><th>Distance</th><th>Durée</th><th>Dénivelé +</th><th>Dénivelé −</th><th>Conso moy.</th></tr>
-      <tr><td id="gpxDist">—</td><td id="gpxTime">—</td><td id="gpxUp">—</td><td id="gpxDown">—</td><td id="gpxAvg">—</td></tr>
-    </table>
     <div class="meta" id="gpxCostNoFixed" style="text-align:center;"></div>
     <div class="meta" id="gpxWx" style="text-align:center;min-height:1em;"></div>
     <button class="btn blue" id="gpxSave" style="display:none;">💾 Enregistrer ce trajet</button>
@@ -490,6 +486,8 @@
       <button class="btn blue" id="impData">⬆️ Importer</button>
       <input id="impFile" type="file" accept="application/json,.json" style="display:none">
     </div>
+    <button class="btn gray" id="resetAll" style="background:#7f1d1d;color:#fff;">♻️ Tout effacer et recommencer</button>
+    <div class="hint">Supprime tout ce que l'app a mémorisé sur cet appareil (historique, pleins, réglages, courbes, destinations) et relance le parcours de première utilisation. Exporte d'abord si besoin.</div>
   </div>
 </div>
 <button class="home-btn" data-acc="pAide">ℹ️ Aide &amp; formules <span class="sub">modèle physique</span></button>
@@ -537,6 +535,20 @@
     <button class="btn gray" id="clClose">Fermer</button>
   </div>
 </div>
+<div class="modal-bg" id="onboardBg">
+  <div class="modal">
+    <h2>👋 Bienvenue dans Coût de trajet</h2>
+    <div class="full" style="text-align:left;">Cette app répond à trois questions :
+• 💶 <b>Combien me coûte ce trajet ?</b> — carburant, péage et coûts fixes au km (assurance, entretien…).
+• 📉 <b>Quelle est ma consommation réelle ?</b> — enregistre tes pleins : chaque trajet est réconcilié avec le réel.
+• 🌍 <b>Quel impact ?</b> — poids, pente, vent, pluie et CO₂e chiffrés trajet par trajet.</div>
+    <div class="stats">Veux-tu découvrir l'app avec des données d'exemple ? Tes données ne seront pas touchées : elles sont mises de côté et restaurées à la sortie de la démo.</div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn blue" id="onboardDemo" style="margin-top:0;">🧪 Voir la démo</button>
+      <button class="btn gray" id="onboardStart" style="margin-top:0;">Commencer</button>
+    </div>
+  </div>
+</div>
 <button class="home-btn" data-acc="p5">📍 Temps réel (bêta) <span class="sub">GPS</span></button>
 <div class="panel" id="p5">
   <div class="card">
@@ -576,7 +588,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.19 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.20 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -1460,7 +1472,9 @@ el("calcRoute").addEventListener("click", async () => {
     el("result2").style.display = "block";
     el("amount2").innerHTML = fmt(total) + co2Span(totalL2);
     el("amount2").dataset.val = String(total);
-    let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + fmt1(totalL2) +
+    const durMinR = times / 60 * distMult;
+    const durTxtR = durMinR >= 60 ? Math.floor(durMinR / 60) + " h " + Math.round(durMinR % 60) + " min" : Math.round(durMinR) + " min";
+    let detail = fmt1(totalKm) + " km" + (roundTrip ? " (A-R)" : "") + " · " + durTxtR + " · " + fmt1(totalL2) +
       " L · moyenne " + fmt1(avgConso) + " L/100 · carburant " + fmt(fuel);
     if (toll > 0) detail += " · péage " + fmt(toll);
     if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
@@ -2660,7 +2674,10 @@ async function gpxCompute(txt, name, quiet) {
     gpxLast.res = res; gpxLast.name = name;
     el("gpxResult").style.display = "block";
     el("gpxCost").innerHTML = price > 0 ? fmt(res.cost) + co2Span(litres) : "— (prix ?)";
-    let dG = fmt1(dist) + " km · " + fmt1(litres) + " L · moyenne " + fmt1(res.avg) + " L/100" +
+    const durMinG = dur / 60;
+    const durTxtG = durMinG >= 60 ? Math.floor(durMinG / 60) + " h " + Math.round(durMinG % 60) + " min"
+      : (durMinG > 0 ? Math.round(durMinG) + " min" : "");
+    let dG = fmt1(dist) + " km" + (durTxtG ? " · " + durTxtG : "") + " · " + fmt1(litres) + " L · moyenne " + fmt1(res.avg) + " L/100" +
       (price > 0 ? " · carburant " + fmt(res.fuel) : "");
     if (res.toll > 0) dG += " · péage " + fmt(res.toll);
     if (fixed > 0) dG += " · coûts fixes " + fmt(fixed);
@@ -2674,11 +2691,6 @@ async function gpxCompute(txt, name, quiet) {
                  : " (trace GPS)");
     }
     el("gpxDetail").textContent = dG;
-    el("gpxDist").textContent = fmt1(dist) + " km";
-    el("gpxTime").textContent = dur > 60 ? Math.round(dur / 60) + " min" : (dur > 0 ? Math.round(dur) + " s" : "—");
-    el("gpxUp").textContent = hasEle ? fmt1(up) + " m" : "sans alt.";
-    el("gpxDown").textContent = hasEle ? fmt1(down) + " m" : "sans alt.";
-    el("gpxAvg").textContent = fmt1(res.avg) + " L/100";
     el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
     el("gpxWx").textContent =
       (altUsed ? "Altitudes : " + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") +
@@ -2715,8 +2727,11 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.19 bêta";
+const APP_VERSION = "v2.20 bêta";
 const CHANGELOG = [
+  ["v2.20 bêta" + " · 29/10/2026",
+    "👋 Parcours de première utilisation : au premier lancement (aucun historique), une fenêtre présente ce que l'app peut faire et propose la démo avant le premier calcul · ♻️ Préférences : bouton « Tout effacer et recommencer » qui réactive ce parcours · 📥 GPX : tableau des résultats supprimé (redondant), la durée rejoint l'encart bleu — comme en mode Itinéraire."],
+
   [APP_VERSION + " · 28/10/2026",
     "🌬️ Effets vent/pente affichés avec 2 décimales (historique, détail du trajet, résultat GPX et détail Itinéraire) — les petites valeurs comme un dénivelé net de −200 m ne disparaissent plus derrière un « 0,0 L »."],
   ["v2.19 bêta" + " · 29/10/2026",
@@ -2874,6 +2889,24 @@ el("demoBtn").addEventListener("click", () => {
 });
 el("demoExit").addEventListener("click", () => {
   if (confirm("Quitter la démo et restaurer tes données ?")) exitDemo();
+});
+
+/* ---------- Parcours de première utilisation / réinitialisation ---------- */
+if (store.get("trajet_history") === null) el("onboardBg").classList.add("show");
+el("onboardDemo").addEventListener("click", () => {
+  el("onboardBg").classList.remove("show");
+  enterDemo();
+});
+el("onboardStart").addEventListener("click", () => {
+  el("onboardBg").classList.remove("show");
+  if (store.get("trajet_history") === null) store.set("trajet_history", "[]"); // le parcours ne reviendra qu'après un reset
+  toast("Bienvenue ! Commence par le prix du litre (⚙️ Préférences), puis 🛣️ Manuel ou 📥 Import GPX.");
+});
+el("resetAll").addEventListener("click", () => {
+  if (!confirm("Tout réinitialiser ?\nHistorique, pleins, réglages, courbes, destinations et traces importées seront effacés de cet appareil.\nLe parcours de première utilisation réapparaîtra au rechargement.")) return;
+  demoKeys().forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  try { localStorage.removeItem("trajet_demoBackup"); localStorage.removeItem("trajet_demoActive"); } catch (e) {}
+  location.reload();
 });
 if (store.get("trajet_demoActive")) {
   el("demoBar").style.display = "block";
