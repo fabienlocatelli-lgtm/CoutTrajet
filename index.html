@@ -288,6 +288,15 @@
       <span class="tlabel">⛰️ Altitudes du MNT (préférence) à la place de celles du fichier</span>
       <label class="switch"><input type="checkbox" id="altGpx"><span class="slider"></span></label>
     </div>
+    <div class="toggle">
+      <span class="tlabel">🛂 Péage sur ce trajet</span>
+      <label class="switch"><input type="checkbox" id="hasTollGpx"><span class="slider"></span></label>
+    </div>
+    <div class="tollField" id="tollFieldGpx">
+      <label for="tollGpx">Montant du péage (aller simple)</label>
+      <div class="unit"><input id="tollGpx" type="text" inputmode="decimal" placeholder="12,30"><span>€</span></div>
+      <div class="meta" id="tollGpxParsed" style="text-align:right;min-height:1em;"></div>
+    </div>
 
     <div class="result" id="gpxResult" style="display:none;">
       <div class="amount" id="gpxCost"></div>
@@ -567,7 +576,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.18 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.19 bêta · 29/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -1083,6 +1092,8 @@ el("wxApiOpts").style.display = "none";
 el("wxManualOpts").style.display = "block";
 el("hasToll2").addEventListener("change", () =>
   el("tollField2").classList.toggle("show", el("hasToll2").checked));
+el("hasTollGpx").addEventListener("change", () =>
+  el("tollFieldGpx").classList.toggle("show", el("hasTollGpx").checked));
 
 async function geocode(q) {
   const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=fr&q=" +
@@ -1318,6 +1329,13 @@ el("calcRoute").addEventListener("click", async () => {
       const t = Math.max(0, Math.min(1, (dKm - i * step) / step));
       return elevs[i] + (elevs[i + 1] - elevs[i]) * t;
     };
+    let upM = 0, downM = 0;
+    if (elevs && elevs.length > 1) {
+      for (let i = 1; i < elevs.length; i++) {
+        const df = elevs[i] - elevs[i - 1];
+        if (df > 0) upM += df; else downM -= df;
+      }
+    }
 
     // Météo
     let wxList = null, wxMode = null;
@@ -1364,7 +1382,7 @@ el("calcRoute").addEventListener("click", async () => {
     const manualWind = parseFloat(el("wxWind").value) || 0;
     const manualRainMult = parseFloat(el("wxRain").value) || 1;
     const nSeg = annDist && annDist.length ? annDist.length : coords.length - 1;
-    let totalL = 0, Lslope = 0, Lwind = 0, Lbase = 0, LrainExtra = 0;
+    let totalL = 0, Lslope = 0, Lwind = 0, Lbase = 0, LrainExtra = 0, L110 = 0;
     let nOsrm = 0, nDef = 0;
     const rawProfile = [];
     let cum = 0;
@@ -1374,6 +1392,7 @@ el("calcRoute").addEventListener("click", async () => {
       if (annSpeed && annSpeed.length > i && annSpeed[i] > 0) {
         v = annSpeed[i] * 3.6; nOsrm++;
       } else { v = 80; nDef++; }
+      if (v >= 110 && maxSp > v) v = maxSp; // autoroute OSRM (≈110 max) → vitesse de croisière de l'utilisateur
       v = Math.min(v, maxSp);
       let grade = 0;
       if (gradeList) {
@@ -1401,6 +1420,13 @@ el("calcRoute").addEventListener("click", async () => {
       Lslope += segKm / 100 * grEff;
       Lwind += segKm / 100 * wEff;
       if (rainMult > 1) LrainExtra += segL - segKm / 100 * (base + grEff + wEff);
+      if (maxSp > 110) {
+        const v110 = Math.min(v, 110);
+        const base110 = interp(curve, v110) * f;
+        const grEff110 = Math.max(gradeEffect(grade), -0.7 * base110);
+        const wEff110 = windEffect(v110, windAx);
+        L110 += segKm / 100 * Math.max(0.05, (base110 + grEff110 + wEff110) * rainMult);
+      }
       rawProfile.push({ d: cum + segKm / 2, v, conso: c, len: segKm });
       cum += segKm;
     }
@@ -1440,8 +1466,20 @@ el("calcRoute").addEventListener("click", async () => {
     if (fixedR > 0) detail += " · coûts fixes " + fmt(fixedR);
     detail += "\nDétail : base " + fmt1(Lbase * distMult) + " L" +
       " · pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope * distMult) + " L" +
+      (elevs ? " (" + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") + ")" : "") +
       " · vent " + (Lwind >= 0 ? "+" : "") + fmt2(Lwind * distMult) + " L" +
       " · pluie +" + fmt2(LrainExtra * distMult) + " L";
+    if (elevs && elevs.length > 1) {
+      const netM = upM - downM;
+      detail += "\n⛰️ Dénivelé : +" + fmt1(upM) + " / −" + fmt1(downM) +
+        " m · net " + (netM >= 0 ? "+" : "−") + fmt1(Math.abs(netM)) + " m";
+    }
+    if (maxSp > 110 && L110 > 0) {
+      const saveL = (totalL - L110) * distMult;
+      if (Math.abs(saveL) >= 0.01)
+        detail += "\nÀ 110 km/h max : " + fmt1(L110 * distMult) + " L — " +
+          (saveL >= 0 ? "économie" : "surcoût") + " de " + fmt(Math.abs(saveL) * price) + " € sur le carburant";
+    }
     el("detail2").textContent = detail;
 
     buildChart(profile, oneWayKm, "chart");
@@ -1463,6 +1501,7 @@ el("calcRoute").addEventListener("click", async () => {
     }
     lastRouteResult = { from, to, totalKm, total, avgConso, price, toll, fixed: fixedR, roundTrip, tripDate,
       slope: Lslope * distMult, wind: Lwind * distMult,
+      deniv: (elevs && elevs.length > 1) ? [upM, downM] : null,
       profile: profile.map(p => ({ d: +p.d.toFixed(3), v: +p.v.toFixed(1), conso: +p.conso.toFixed(2) })),
       oneWayKm };
     addDest(from);
@@ -2020,7 +2059,7 @@ el("saveBtn2").addEventListener("click", () => {
       profile: lastRouteResult.profile, oneWayKm: lastRouteResult.oneWayKm,
       litres: litres, co2: co2Total(litres), fuel: litres * lastRouteResult.price, toll: lastRouteResult.toll,
       fixed: fixed2, dist: lastRouteResult.totalKm, tripDate: lastRouteResult.tripDate,
-      wind: lastRouteResult.wind, slope: lastRouteResult.slope });
+      wind: lastRouteResult.wind, slope: lastRouteResult.slope, deniv: lastRouteResult.deniv || null });
 });
 
 /* ---------- Détail historique ---------- */
@@ -2591,6 +2630,8 @@ async function gpxCompute(txt, name, quiet) {
 
   if (prof.length && dist - lastProfD > 0.05)
     prof.push({ d: +dist.toFixed(3), v: lastV, conso: lastC, alt: hasEle ? altAtD(dist) : null });
+  const tollGpxRaw = el("hasTollGpx").checked ? parseMoney(el("tollGpx").value) : 0;
+  const tollGpx = (tollGpxRaw && !isNaN(tollGpxRaw)) ? tollGpxRaw : 0;
   let up = 0, down = 0;
   for (let i = 1; i < altS.length; i++) {
     const diff = altS[i].alt - altS[i - 1].alt;
@@ -2612,18 +2653,27 @@ async function gpxCompute(txt, name, quiet) {
     slope: Lslope, wind: Lwind, profile: prof, deniv: hasEle ? [up, down] : null,
     avg: litres / dist * 100,
     fuel: price > 0 ? litres * price : 0,
-    fixed, price,
-    cost: (price > 0 ? litres * price : 0) + fixed,
+    fixed, price, toll: tollGpx,
+    cost: (price > 0 ? litres * price : 0) + fixed + tollGpx,
     t0: pts[0].t };
   if (!quiet) {
     gpxLast.res = res; gpxLast.name = name;
     el("gpxResult").style.display = "block";
     el("gpxCost").innerHTML = price > 0 ? fmt(res.cost) + co2Span(litres) : "— (prix ?)";
-    el("gpxDetail").textContent = name.replace(/\.gpx$/i, "") + " · " + fmt1(litres) + " L" +
-      (Math.abs(Lslope) >= 0.005 || Math.abs(Lwind) >= 0.005
-        ? " (pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
-          (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L)"
-        : "");
+    let dG = fmt1(dist) + " km · " + fmt1(litres) + " L · moyenne " + fmt1(res.avg) + " L/100" +
+      (price > 0 ? " · carburant " + fmt(res.fuel) : "");
+    if (res.toll > 0) dG += " · péage " + fmt(res.toll);
+    if (fixed > 0) dG += " · coûts fixes " + fmt(fixed);
+    dG += "\nDétail : pente " + (Lslope >= 0 ? "+" : "") + fmt2(Lslope) + " L · vent " +
+      (Lwind >= 0 ? "+" : "") + fmt2(Lwind) + " L";
+    if (hasEle) {
+      const netM = up - down;
+      dG += "\n⛰️ Dénivelé : +" + fmt1(up) + " / −" + fmt1(down) + " m · net " +
+        (netM >= 0 ? "+" : "−") + fmt1(Math.abs(netM)) + " m" +
+        (altUsed ? " (" + (getElevations.lastSrc === "ign" ? "IGN RGE ALTI" : "Copernicus GLO-90") + ")"
+                 : " (trace GPS)");
+    }
+    el("gpxDetail").textContent = dG;
     el("gpxDist").textContent = fmt1(dist) + " km";
     el("gpxTime").textContent = dur > 60 ? Math.round(dur / 60) + " min" : (dur > 0 ? Math.round(dur) + " s" : "—");
     el("gpxUp").textContent = hasEle ? fmt1(up) + " m" : "sans alt.";
@@ -2648,7 +2698,7 @@ function gpxSave(res, name, fromDir) {
     res.cost,
     fmt1(res.avg) + " L/100 (trace GPS)",
     { full: "Trajet importé d'une trace GPX\n" + name,
-      litres: res.litres, co2: co2Total(res.litres), fuel: res.price > 0 ? res.fuel : null, toll: 0,
+      litres: res.litres, co2: co2Total(res.litres), fuel: res.price > 0 ? res.fuel : null, toll: res.toll || 0,
       wind: res.wind, slope: res.slope, deniv: res.deniv || null,
       profile: res.profile && res.profile.length ? res.profile : null, oneWayKm: res.dist,
       fixed: res.fixed, dist: res.dist, name: name.replace(/\.gpx$/i, ""),
@@ -2665,10 +2715,13 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.18 bêta";
+const APP_VERSION = "v2.19 bêta";
 const CHANGELOG = [
   [APP_VERSION + " · 28/10/2026",
     "🌬️ Effets vent/pente affichés avec 2 décimales (historique, détail du trajet, résultat GPX et détail Itinéraire) — les petites valeurs comme un dénivelé net de −200 m ne disparaissent plus derrière un « 0,0 L »."],
+  ["v2.19 bêta" + " · 29/10/2026",
+    "⛰️ Dénivelé +/− et net affichés dans les résultats Itinéraire et GPX, avec la source des altitudes (IGN ou Copernicus) · 🛂 GPX : ajout possible d'un péage · 📊 résultat GPX aligné sur l'affichage du mode Manuel · 🚗 Itinéraire : sur autoroute la vitesse OSRM (plafonnée ≈110) est portée à ta vitesse max si tu roules plus vite, et si ta vitesse max dépasse 110 le résultat affiche l'économie (ou le surcoût) de carburant en roulant à 110 km/h."],
+
   ["v2.18 bêta" + " · 29/10/2026",
     "⛰️ Source d'altitude au choix dans ⚙️ Préférences : IGN RGE ALTI (défaut, MNT français précis) ou Copernicus GLO-90 — utilisée pour les pentes des modes Adresse et Temps réel · import GPX : nouvelle option « altitudes du MNT à la place de celles du fichier » · secours automatique sur l'autre source en cas d'indisponibilité."],
 
@@ -2841,6 +2894,7 @@ const savedConso = store.get("trajet_conso");
 if (savedConso !== null) el("conso").value = savedConso;
 wireToll("toll", "tollParsed");
 wireToll("toll2", "toll2Parsed");
+wireToll("tollGpx", "tollGpxParsed");
 { const now = new Date();
   el("flDate").value = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   el("flTime").value = now.toTimeString().slice(0,5);
