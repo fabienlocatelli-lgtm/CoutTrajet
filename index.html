@@ -18,12 +18,19 @@
     border-radius: 999px; padding: 8px 4px; font-size: .78rem; gap: 6px; }
   #tabBar .home-btn .sub { display: none; }
   #dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px; }
-  #dash .dcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  #dash .dcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-width: 0; }
   #dash .dlabel { font-size: .68rem; color: var(--fg-muted); }
   #dash .dvalue { font-size: 1.05rem; font-weight: 800; margin-top: 4px; }
   #dash .dsub { font-size: .66rem; color: var(--fg-dim); margin-top: 4px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #dash .dwide { grid-column: 1 / -1; font-size: .7rem; color: var(--fg-muted); text-align: center;
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; min-width: 0; }
+  @media (max-width: 600px) {
+    #tabBar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 15; background: var(--bg);
+      border-top: 1px solid var(--border); padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -2px 12px rgba(0,0,0,.25); }
+    body { padding-bottom: 76px; }
+    .toast { bottom: 84px; }
+  }
 
   :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
   * { box-sizing: border-box; }
@@ -642,7 +649,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.5 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.6 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2885,8 +2892,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.5 bêta design";
+const APP_VERSION = "v3.6 bêta design";
 const CHANGELOG = [
+  ["v3.6 bêta design" + " · 30/10/2026",
+    "🐛 Correctif dashboard : les cartes (Dernier trajet, CO₂e, Conso réelle) pouvaient dépasser la largeur de l\u2019écran et créer un scroll horizontal — elles se ressèrent désormais à la largeur disponible · 📱 Barre de\u0020navigation basse sur mobile : les onglets se fixent en bas de l\u2019écran (zone sûre iPhone respectée), la barre reste en haut sur grand écran."],
   ["v3.5 bêta design" + " · 30/10/2026",
     "🐛 Correctifs : texte des champs en couleur du thème (le blanc sur fond blanc en mode clair rendait l'adresse illisible) · mode démo : le segment Manuel / GPX / GPS apparaît bien (avant, seul le panneau Manuel s'ouvrait sans les sous-modes)."],
   ["v3.4 bêta design" + " · 30/10/2026",
