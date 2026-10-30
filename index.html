@@ -594,7 +594,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.24 bêta · 29/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.25 bêta · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -815,6 +815,8 @@ function windEffect(vKmh, windAxialKmh) { // L/100km ; vent axial + = arrière
 const REF_CURVES = {
   "Citadine essence (Clio, 208…)": [[30,4.8],[50,4.3],[70,4.5],[90,5.2],[110,6.2],[130,7.4]],
   "Compacte diesel (Golf, 308…)":  [[30,4.2],[50,3.8],[70,3.9],[90,4.5],[110,5.4],[130,6.6]],
+  "Utilitaire diesel (Kangoo, Partner…)": [[30,5.8],[50,5.3],[70,5.5],[90,6.2],[110,7.3],[130,8.6]],
+  "Familiale essence (508 SW, Mégane SW…)": [[30,5.5],[50,5.0],[70,5.2],[90,6.0],[110,7.2],[130,8.6]],
   "SUV essence (3008…)":           [[30,6.2],[50,5.6],[70,5.9],[90,6.8],[110,8.0],[130,9.6]]
 };
 function allCurves() {
@@ -2752,8 +2754,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.24 bêta";
+const APP_VERSION = "v2.25 bêta";
 const CHANGELOG = [
+  ["v2.25 bêta" + " · 30/10/2026",
+    "🚗 Deux courbes de référence en plus dans 🚗 Mon véhicule, entre la compacte (308) et le SUV : « Utilitaire diesel (Kangoo, Partner…) » et « Familiale essence (508 SW, Mégane SW…) »."],
   ["v2.24 bêta" + " · 29/10/2026",
     "👋 Parcours de première utilisation : le conseil de démarrage (prix du litre, puis calcul) n'est plus un toast éphémère — c'est un bandeau fixe en haut de l'app, refermable avec « ✕ », qui reste affiché (même après rechargement) jusqu'à ce que tu le masques."],
 
