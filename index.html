@@ -28,7 +28,7 @@
     #tabBar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 15; background: var(--bg);
       border-top: 1px solid var(--border); padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -2px 12px rgba(0,0,0,.25); }
-    body { padding-bottom: 76px; }
+    body { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
     .toast { bottom: 84px; }
   }
 
@@ -650,7 +650,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.7 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.8 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2893,8 +2893,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.7 bêta design";
+const APP_VERSION = "v3.8 bêta design";
 const CHANGELOG = [
+  ["v3.8 bêta design" + " · 30/10/2026",
+    "🐛 Correctif mobile : le pied de page n\u2019était plus visible sous la barre d\u2019onglets basse — le contenu laisse désormais la place à la barre + la zone sûre iPhone."],
   ["v3.7 bêta design" + " · 30/10/2026",
     "🎗️ Héros du résultat : dès qu\u2019un calcul aboutit (Itinéraire, GPX, Temps réel), l\u2019app défile automatiquement vers le résultat, qui reste épinglé sous la barre du haut pendant qu\u2019on ajuste les réglages (péage, météo…) · ✏️ Itinéraire : sous-titre allégé (« Nécessite une connexion Internet »)."],
   ["v3.6 bêta design" + " · 30/10/2026",
