@@ -38,7 +38,7 @@
   .row > div { flex: 1; min-width: 0; }
   input[type="number"], input[type="text"], input[type="date"], input[type="time"], select {
     width: 100%; padding: 10px; font-size: .95rem; border-radius: 10px;
-    border: 1px solid var(--border); background: var(--bg); color: #fff; outline: none;
+    border: 1px solid var(--border); background: var(--bg); color: var(--fg); outline: none;
     
   }
   input:focus, select:focus { border-color: var(--accent); }
@@ -642,7 +642,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.4 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.5 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2885,8 +2885,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.4 bêta design";
+const APP_VERSION = "v3.5 bêta design";
 const CHANGELOG = [
+  ["v3.5 bêta design" + " · 30/10/2026",
+    "🐛 Correctifs : texte des champs en couleur du thème (le blanc sur fond blanc en mode clair rendait l'adresse illisible) · mode démo : le segment Manuel / GPX / GPS apparaît bien (avant, seul le panneau Manuel s'ouvrait sans les sous-modes)."],
   ["v3.4 bêta design" + " · 30/10/2026",
     "🎗️ Résultat héros unifié : les encarts de résultat (Manuel, Itinéraire, GPX, Temps réel) partagent le même composant — dégradé suivant le thème, montant en plus grand, coins arrondis et légère ombre · 🗂️ Onglets : largeur répartie sur toute la barre, plus de léger scroll horizontal."],
   ["v3.3 bêta design" + " · 30/10/2026",
@@ -3101,9 +3103,7 @@ if (store.get("trajet_demoActive")) {
   el("demoBar").style.display = "block";
   el("demoBtn").textContent = "🧪 Quitter la démo (restaurer mes données)";
   // Trajet d'exemple pré-rempli dans Manuel → Adresse, invitation au calcul
-  el("p1").classList.add("open");
-  const p1btn = document.querySelector('[data-acc="p1"]');
-  if (p1btn) p1btn.classList.add("open");
+  showCalc("man");
   el("from").value = "20 avenue de Ségur, Paris";
   el("to").value = "Gare d'Orléans, Orléans";
   el("wxTime").value = "08:00";
