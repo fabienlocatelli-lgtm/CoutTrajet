@@ -101,6 +101,7 @@
   .btn:disabled { opacity: .5; }
   .btn:active { opacity: .8; }
   .result { margin-top: 14px; background: linear-gradient(135deg, var(--hero-a), var(--hero-b));
+  .result.stick { position: sticky; top: 52px; z-index: 12; box-shadow: 0 6px 22px rgba(2, 132, 199, .38); }
     border-radius: 16px; padding: 18px 14px; text-align: center;
     box-shadow: 0 4px 18px rgba(2, 132, 199, .28); }
   .result .amount { font-size: 2.1rem; font-weight: 800; color: #fff; letter-spacing: -.02em; }
@@ -224,7 +225,7 @@
       <div class="meta" id="tollParsed"></div>
     </div>
 
-    <div class="result">
+    <div class="result stick">
       <div class="amount" id="amount">—</div>
       <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
     </div>
@@ -232,7 +233,7 @@
     <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
     </div>
     <div id="manualRoute">
-    <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu) <button class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</button></div>
+    <div class="subtitle">Nécessite une connexion Internet <button class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</button></div>
 
     <label for="from">Lieu de départ</label>
     <input id="from" type="text" list="destList" placeholder="Ex. 20 avenue de Ségur, Paris" autocomplete="off">
@@ -299,7 +300,7 @@
     <button class="btn blue" id="calcRoute">🚗 Calculer le coût</button>
     <div class="status" id="status"></div>
 
-    <div class="result" id="result2" style="display:none;">
+    <div class="result stick" id="result2" style="display:none;">
       <div class="amount" id="amount2">—</div>
       <div class="detail" id="detail2"></div>
     </div>
@@ -351,7 +352,7 @@
       <div class="meta" id="tollGpxParsed" style="text-align:right;min-height:1em;"></div>
     </div>
 
-    <div class="result" id="gpxResult" style="display:none;">
+    <div class="result stick" id="gpxResult" style="display:none;">
       <div class="amount" id="gpxCost"></div>
       <div class="detail" id="gpxDetail"></div>
     </div>
@@ -622,7 +623,7 @@
     </div>
     <div class="status" id="gpsStatus"></div>
 
-    <div class="result" id="gpsLive" style="display:none;">
+    <div class="result stick" id="gpsLive" style="display:none;">
       <div class="detail" style="margin:0;">Consommation instantanée</div>
       <div class="amount" id="gConso">—</div>
       <div class="detail" id="gSpeed">—</div>
@@ -649,7 +650,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.6 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.7 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2892,8 +2893,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.6 bêta design";
+const APP_VERSION = "v3.7 bêta design";
 const CHANGELOG = [
+  ["v3.7 bêta design" + " · 30/10/2026",
+    "🎗️ Héros du résultat : dès qu\u2019un calcul aboutit (Itinéraire, GPX, Temps réel), l\u2019app défile automatiquement vers le résultat, qui reste épinglé sous la barre du haut pendant qu\u2019on ajuste les réglages (péage, météo…) · ✏️ Itinéraire : sous-titre allégé (« Nécessite une connexion Internet »)."],
   ["v3.6 bêta design" + " · 30/10/2026",
     "🐛 Correctif dashboard : les cartes (Dernier trajet, CO₂e, Conso réelle) pouvaient dépasser la largeur de l\u2019écran et créer un scroll horizontal — elles se ressèrent désormais à la largeur disponible · 📱 Barre de\u0020navigation basse sur mobile : les onglets se fixent en bas de l\u2019écran (zone sûre iPhone respectée), la barre reste en haut sur grand écran."],
   ["v3.5 bêta design" + " · 30/10/2026",
@@ -3160,6 +3163,20 @@ const _renderHistory = renderHistory;
 renderHistory = function () { _renderHistory(); renderDashboard(); };
 const _saveEntry = saveEntry;
 saveEntry = function () { const res = _saveEntry.apply(null, arguments); renderDashboard(); return res; };
+/* ---------- Héros : défilement automatique vers le résultat dès qu'il apparaît ---------- */
+(function heroWatch() {
+  ["result2", "gpxResult", "gpsLive"].forEach(id => {
+    const n = el(id);
+    if (!n || typeof MutationObserver === "undefined") return;
+    let busy = false;
+    new MutationObserver(() => {
+      if (n.style.display !== "none" && !busy) {
+        busy = true;
+        setTimeout(() => { try { n.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} busy = false; }, 60);
+      }
+    }).observe(n, { attributes: true, attributeFilter: ["style"] });
+  });
+})();
 function renderDashboard() {
   const box = el("dash");
   if (!box) return;
