@@ -581,7 +581,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.13.1 bêta design · 30/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.13.2 bêta design · 30/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -2953,8 +2953,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.13.1 bêta design";
+const APP_VERSION = "v3.13.2 bêta design";
 const CHANGELOG = [
+  ["v3.13.2 bêta design · 30/10/2026",
+    "🐛 Correctif v3.13 : la liste « 🕘 Tes pleins » restait vide au chargement de la page (le premier affichage avait lieu avant l\u2019installation du hook qui la dessine) — elle apparaît maintenant dès le démarrage."],
   ["v3.13.1 bêta design · 30/10/2026",
     "🐛 Correctif v3.13 : le repli « prix du dernier plein » s'exécutait avant le chargement de l'historique (ReferenceError) et coupait le script — démo, modales et parcours d'accueil ne répondaient plus. Il s'exécute désormais au bon moment, lors de l'initialisation."],
   ["v3.13 bêta design · 30/10/2026",
@@ -3253,6 +3255,7 @@ const _renderHistory = renderHistory;
 renderHistory = function () { _renderHistory(); renderDashboard(); renderPleinsList(); };
 const _saveEntry = saveEntry;
 saveEntry = function () { const res = _saveEntry.apply(null, arguments); renderDashboard(); return res; };
+renderPleinsList(); // v3.13.2 : premier affichage — l\u2019appel d\u2019init de renderHistory() précédait l\u2019installation du wrapper
 /* ---------- Héros : défilement automatique vers le résultat dès qu'il apparaît ---------- */
 (function heroWatch() {
   ["result2", "gpxResult", "gpsLive"].forEach(id => {
