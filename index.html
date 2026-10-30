@@ -663,7 +663,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.11 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.12 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2069,12 +2069,13 @@ function renderHistory() {
   sorted.forEach(h => {
     const div = document.createElement("div");
     div.className = "hist-item" + (h.type === "Plein" ? " plein" : "");
+    div.dataset.hopen = h.id; div.style.cursor = "pointer"; // tout le bloc ouvre le détail
     const d = new Date(h.date);
     const dateTxt = d.toLocaleDateString("fr-FR") + " " +
       d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
     if (h.type === "Plein") {
       div.innerHTML =
-        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+        '<div class="left">' +
           '<div class="date">⛽ PLEIN <span class="mode">' + dateTxt + '</span>' +
             (h.notFull ? ' <span class="badge">non complet</span>' : '') + '</div>' +
           '<div class="desc" style="color:#4ade80;">' + fmt1(h.liters) + ' L à ' +
@@ -2089,7 +2090,7 @@ function renderHistory() {
       div.innerHTML =
         '<input type="checkbox" class="cb" data-hcheck="' + h.id + '"' +
           (h.compte !== false ? " checked" : "") + '>' +
-        '<div class="left" data-hopen="' + h.id + '" style="cursor:pointer;">' +
+        '<div class="left">' +
           '<div class="date">' + (h.tripDate
             ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
               " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
@@ -2098,7 +2099,7 @@ function renderHistory() {
           '<div class="desc">' + (h.desc || "") + badge + '</div>' +
           (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
         '</div>' +
-        '<div class="cost" data-hopen="' + h.id + '" style="cursor:pointer;text-align:right;">' + fmt(cost) +
+        '<div class="cost" style="text-align:right;">' + fmt(cost) +
           ((h.fixed || 0) > 0
             ? '<div style="font-size:.68rem;color:#94a3b8;font-weight:400;">sans fixes ' + fmt(cost - h.fixed) + '</div>'
             : '') +
@@ -2135,7 +2136,9 @@ el("history").addEventListener("click", (e) => {
     if (h) { h.compte = e.target.checked; saveHistory(); reconcile(); renderHistory(); }
     return;
   }
-  const open = e.target.dataset.hopen;
+  if (e.target.closest("[data-hdel], [data-co2], [data-info]")) return; // ✕, CO₂e et « i » gardent leur action
+  const op = e.target.closest("[data-hopen]");
+  const open = op ? op.dataset.hopen : undefined;
   if (open !== undefined) {
     const h = history.find(x => String(x.id) === String(open));
     if (h) openDetail(h);
@@ -2906,8 +2909,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.11 bêta design";
+const APP_VERSION = "v3.12 bêta design";
 const CHANGELOG = [
+  ["v3.12 bêta design · 30/10/2026",
+    "👆 Historique : tout le bloc d\u2019un trajet ouvre son détail (pas seulement le tarif) — la case à cocher, la croix et la ligne CO₂e gardent leur propre action · 🕒 Dashboard : la carte « Dernier trajet » ouvre aussi le détail du trajet."],
   ["v3.11 bêta design · 30/10/2026",
     "🧮 Démarrage : l\u2019onglet Calcul (avec ton dernier sous-mode Manuel / GPX / GPS) est ouvert dès le lancement de l\u2019app — plus besoin d\u2019y toucher avant de calculer un trajet."],
   ["v3.10 bêta design · 30/10/2026",
@@ -3242,11 +3247,18 @@ function renderDashboard() {
   else if (prev) wide = '🚗 ' + fmt1(prev) + ' km/an prévus';
   else wide = '🚗 km/an : à régler dans 🚗 Véhicule <button class="ibtn" data-info="info15" title="km/an : prévus ou réels" style="margin-left:4px;">i</button>';
   box.innerHTML =
-    '<div class="dcard"><div class="dlabel">🕒 Dernier trajet</div><div class="dvalue">' + lastCost + '</div><div class="dsub">' + lastTxt + '</div></div>' +
+    '<div class="dcard" data-dopen="' + (last ? last.id : "") + '" style="cursor:pointer;"><div class="dlabel">🕒 Dernier trajet</div><div class="dvalue">' + lastCost + '</div><div class="dsub">' + lastTxt + '</div></div>' +
     '<div class="dcard"><div class="dlabel">🌍 CO₂e du mois</div><div class="dvalue">' + fmtCo2(mCo2) + '</div><div class="dsub">' + fmt1(mKm) + ' km · ' + fmt(mCost) + '</div></div>' +
     '<div class="dcard"><div class="dlabel">📊 Conso réelle</div><div class="dvalue">' + consoTxt + '</div><div class="dsub">' + consoSub + '</div></div>' +
     '<div class="dwide">' + wide + '</div>';
 }
+el("dash").addEventListener("click", (e) => {
+  if (e.target.closest("[data-info], [data-co2]")) return; // le « i » et le CO₂e gardent leur action
+  const c = e.target.closest("[data-dopen]");
+  if (!c || c.dataset.dopen === "") return;
+  const h = (history || []).find(x => String(x.id) === String(c.dataset.dopen));
+  if (h) openDetail(h);
+});
 </script>
 </body>
 </html>
