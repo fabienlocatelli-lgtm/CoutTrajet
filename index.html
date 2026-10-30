@@ -5,104 +5,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0b0f17" />
 <title>Coût de trajet voiture thermique</title>
-<style>
-  :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: #0b0f17; color: #e2e8f0; }
+<style>  :root { --bg:#0b0f17; --card:#141a26; --border:#232c3d; --fg:#e2e8f0; --fg-muted:#94a3b8; --fg-dim:#64748b; --accent:#38bdf8; --on-accent:#0f172a; --switch-bg:#334155; --hero-a:#0369a1; --hero-b:#0f766e; color-scheme: dark; }
+  html[data-theme="light"] { --bg:#f8fafc; --card:#ffffff; --border:#e2e8f0; --fg:#0f172a; --fg-muted:#475569; --fg-dim:#64748b; --accent:#0284c7; --on-accent:#ffffff; --switch-bg:#cbd5e1; --hero-a:#0284c7; --hero-b:#0d9488; color-scheme: light; }
+  body, .card, .home-btn, .seg-btn, .load-chip, .toggle, .drawer, .segment, .modal, .hist-item, details.info, .btn, input, select, #topBar, #tabBar { transition: background-color .18s ease, color .18s ease, border-color .18s ease; }
+  #topBar { position: sticky; top: 0; z-index: 15; background: var(--bg); border-bottom: 1px solid var(--border); }
+  #topBar .tb-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 2px; }
+  .tb-title { font-weight: 700; font-size: .95rem; color: var(--fg); }
+  #themeBtn { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: .95rem; cursor: pointer; }
+  #tabBar { display: flex; gap: 4px; overflow-x: auto; padding: 0 8px 8px; scrollbar-width: none; }
+  #tabBar::-webkit-scrollbar { display: none; }
+  #tabBar .home-btn { margin: 0; width: auto; flex: 1 1 0; justify-content: center; white-space: nowrap;
+    border-radius: 999px; padding: 8px 4px; font-size: .78rem; gap: 6px; }
+  #tabBar .home-btn .sub { display: none; }
+  #dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px; }
+  #dash .dcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-width: 0; }
+  #dash .dlabel { font-size: .68rem; color: var(--fg-muted); }
+  #dash .dvalue { font-size: 1.05rem; font-weight: 800; margin-top: 4px; }
+  #dash .dsub { font-size: .66rem; color: var(--fg-dim); margin-top: 4px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #dash .dwide { grid-column: 1 / -1; font-size: .7rem; color: var(--fg-muted); text-align: center;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; min-width: 0; }
+  @media (max-width: 600px) {
+    #tabBar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 15; background: var(--bg);
+      border-top: 1px solid var(--border); padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -2px 12px rgba(0,0,0,.25); }
+    body { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+    .toast { bottom: 84px; }
+  }
+
+  :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 0 0 32px; }
   .wrap { width: 100%; max-width: 480px; }
-  .card { background: #141a26; border: 1px solid #232c3d; border-radius: 12px; padding: 16px; margin: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
   h1 { margin: 0 0 4px; font-size: 1.15rem; text-align: center; }
   h2 { margin: 14px 0 8px; font-size: .95rem; }
-  .subtitle { text-align: center; color: #94a3b8; font-size: .78rem; margin-bottom: 12px; }
-  label { display: block; font-size: .82rem; color: #94a3b8; margin: 9px 0 4px; }
+  .subtitle { text-align: center; color: var(--fg-muted); font-size: .78rem; margin-bottom: 12px; }
+  label { display: block; font-size: .82rem; color: var(--fg-muted); margin: 9px 0 4px; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; min-width: 0; }
   input[type="number"], input[type="text"], input[type="date"], input[type="time"], select {
     width: 100%; padding: 10px; font-size: .95rem; border-radius: 10px;
-    border: 1px solid #232c3d; background: #0b0f17; color: #fff; outline: none;
-    color-scheme: dark;
+    border: 1px solid var(--border); background: var(--bg); color: var(--fg); outline: none;
+    
   }
-  input:focus, select:focus { border-color: #38bdf8; }
+  input:focus, select:focus { border-color: var(--accent); }
   .unit { position: relative; }
-  .unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .78rem; pointer-events: none; }
+  .unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--fg-dim); font-size: .78rem; pointer-events: none; }
   .unit input { padding-right: 50px; }
   .home-btn { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 6px 12px;
-    padding: 11px 14px; background: #141a26; color: #e2e8f0; border: 1px solid #232c3d; border-radius: 10px;
+    padding: 11px 14px; background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 10px;
     font-size: .92rem; font-weight: 600; cursor: pointer; text-align: left; }
-  .home-btn .sub { font-size: .7rem; color: #94a3b8; font-weight: 400; margin-left: auto; }
-  .home-btn.open { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
-  .home-btn.open .sub { color: #0f172a; }
+  .home-btn .sub { font-size: .7rem; color: var(--fg-muted); font-weight: 400; margin-left: auto; }
+  .home-btn.open { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .home-btn.open .sub { color: var(--on-accent); }
   .panel { display: none; }
   .panel.open { display: block; }
   .seg { display: flex; gap: 6px; margin-bottom: 12px; }
-  .seg-btn { flex: 1; padding: 9px 4px; background: #0b0f17; color: #94a3b8; border: 1px solid #232c3d;
+  .seg-btn { flex: 1; padding: 9px 4px; background: var(--bg); color: var(--fg-muted); border: 1px solid var(--border);
     border-radius: 10px; font-size: .82rem; font-weight: 600; cursor: pointer; }
-  .seg-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+  .seg-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   .load-chip { display: inline-flex; align-items: center; margin: 3px 3px 0 0; padding: 7px 11px;
-    background: #0b0f17; border: 1px solid #232c3d; border-radius: 999px; color: #e2e8f0;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 999px; color: var(--fg);
     font-size: .78rem; cursor: pointer; }
-  .load-chip.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 700; }
+  .load-chip.sel { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
   .load-chip .x { color: #f87171; font-weight: 700; margin-left: 6px; }
   .load-chip .minus { color: #f87171; font-weight: 700; margin-left: 4px; cursor: pointer; padding: 0 3px; }
   .btn.pulse { animation: pulseGlow 1.6s ease-in-out infinite; }
   @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } 50% { box-shadow: 0 0 14px 4px rgba(56,189,248,.75); } }
   .toggle { display: flex; align-items: center; justify-content: space-between;
-    background: #0b0f17; border-radius: 10px; padding: 10px 12px; border: 1px solid #232c3d; margin-top: 8px; }
-  .toggle .tlabel { color: #e2e8f0; font-size: .87rem; }
+    background: var(--bg); border-radius: 10px; padding: 10px 12px; border: 1px solid var(--border); margin-top: 8px; }
+  .toggle .tlabel { color: var(--fg); font-size: .87rem; }
   .switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; cursor: pointer; }
   .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .slider { position: absolute; inset: 0; background: #334155; border-radius: 28px; transition: .2s; }
+  .slider { position: absolute; inset: 0; background: var(--switch-bg); border-radius: 28px; transition: .2s; }
   .slider::before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
-  .switch input:checked + .slider { background: #38bdf8; }
+  .switch input:checked + .slider { background: var(--accent); }
   .switch input:checked + .slider::before { transform: translateX(24px); }
   .tollField { display: none; }
   .tollField.show { display: block; }
-  .drawer { display: none; margin-top: 8px; background: #0b0f17; border: 1px solid #232c3d;
+  .drawer { display: none; margin-top: 8px; background: var(--bg); border: 1px solid var(--border);
     border-radius: 10px; padding: 10px; }
   .drawer.show { display: block; }
-  .segment { background: #0b0f17; border: 1px solid #232c3d; border-radius: 10px; padding: 10px; margin-top: 8px; }
+  .segment { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-top: 8px; }
   .segment .head { display: flex; align-items: center; gap: 8px; }
   .segment .head input[type="text"] { flex: 1; min-width: 0; }
   .del { background: none; border: none; color: #f87171; font-size: 1.2rem; padding: 4px 10px; cursor: pointer; }
-  .meta { font-size: .75rem; color: #64748b; margin-top: 6px; }
+  .meta { font-size: .75rem; color: var(--fg-dim); margin-top: 6px; }
   table { width: 100%; border-collapse: collapse; margin-top: 6px; }
   td, th { padding: 4px; text-align: center; }
   td input { padding: 8px !important; font-size: .95rem !important; }
   .btn { margin-top: 10px; width: 100%; padding: 11px; border-radius: 10px; border: none;
     font-size: .92rem; font-weight: 600; cursor: pointer; }
-  .btn.gray { background: #232c3d; color: #e2e8f0; }
-  .btn.blue { background: #38bdf8; color: #0f172a; }
+  .btn.gray { background: var(--border); color: var(--fg); }
+  .btn.blue { background: var(--accent); color: var(--on-accent); }
   .btn:disabled { opacity: .5; }
   .btn:active { opacity: .8; }
-  .result { margin-top: 14px; background: linear-gradient(135deg, #0ea5e9, #0f766e);
-    border-radius: 12px; padding: 14px; text-align: center; }
-  .result .amount { font-size: 1.9rem; font-weight: 800; color: #fff; }
+  .result { margin-top: 14px; background: linear-gradient(135deg, var(--hero-a), var(--hero-b));
+  .result.stick { position: sticky; top: 52px; z-index: 12; box-shadow: 0 6px 22px rgba(2, 132, 199, .38); }
+    border-radius: 16px; padding: 18px 14px; text-align: center;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, .28); }
+  .result .amount { font-size: 2.1rem; font-weight: 800; color: #fff; letter-spacing: -.02em; }
   .result .detail { font-size: .8rem; color: #d1fae5; margin-top: 5px; min-height: 1.2em; line-height: 1.55; }
-  .formula { font-size: .72rem; color: #94a3b8; text-align: center; margin-top: 6px; line-height: 1.55; }
-  .hint { font-size: .7rem; color: #64748b; text-align: center; margin-top: 8px; line-height: 1.45; }
-  details.info { margin-top: 10px; background: #0b0f17; border: 1px solid #232c3d;
-    border-radius: 10px; padding: 8px 10px; font-size: .76rem; color: #94a3b8; line-height: 1.55; }
-  details.info summary { cursor: pointer; color: #38bdf8; font-size: .8rem; }
-  .ibtn { background: #0b0f17; color: #38bdf8; border: 1px solid #232c3d; border-radius: 50%;
+  .formula { font-size: .72rem; color: var(--fg-muted); text-align: center; margin-top: 6px; line-height: 1.55; }
+  .hint { font-size: .7rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.45; }
+  details.info { margin-top: 10px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; font-size: .76rem; color: var(--fg-muted); line-height: 1.55; }
+  details.info summary { cursor: pointer; color: var(--accent); font-size: .8rem; }
+  .ibtn { background: var(--bg); color: var(--accent); border: 1px solid var(--border); border-radius: 50%;
     width: 26px; height: 26px; font-size: .8rem; font-weight: 700; cursor: pointer; padding: 0; }
-  .hist-item { background: #0b0f17; border: 1px solid #232c3d; border-radius: 10px; padding: 10px 12px;
+  .hist-item { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
     margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .hist-item .left { flex: 1; min-width: 0; }
-  .hist-item .date { font-size: .7rem; color: #64748b; }
-  .hist-item .mode { font-size: .68rem; color: #38bdf8; }
-  .hist-item .desc { font-size: .8rem; color: #94a3b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-item .date { font-size: .7rem; color: var(--fg-dim); }
+  .hist-item .mode { font-size: .68rem; color: var(--accent); }
+  .hist-item .desc { font-size: .8rem; color: var(--fg-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hist-item .cost { font-weight: 700; white-space: nowrap; }
   .co2link { cursor: pointer; text-decoration: underline dotted; font-weight: 600; font-size: .8em; white-space: nowrap; }
   .result .co2link { color: #d1fae5; }
   .hist-item .cb { flex: 0 0 auto; width: 24px; height: 24px; margin-top: 6px; }
   .hist-item.plein { border-color: #4ade80; background: #052e16; }
   .hist-item .badge { font-size: .65rem; color: #f59e0b; }
-  .empty { color: #64748b; font-size: .85rem; text-align: center; margin-top: 10px; }
-  #chartBox { margin-top: 12px; background: #0b0f17; border-radius: 10px; padding: 8px; }
+  .empty { color: var(--fg-dim); font-size: .85rem; text-align: center; margin-top: 10px; }
+  #chartBox { margin-top: 12px; background: var(--bg); border-radius: 10px; padding: 8px; }
   #chartBox svg { width: 100%; height: auto; }
-  .legend { display: flex; gap: 10px; justify-content: center; font-size: .68rem; color: #94a3b8; margin-top: 6px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 10px; justify-content: center; font-size: .68rem; color: var(--fg-muted); margin-top: 6px; flex-wrap: wrap; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-  .status { font-size: .76rem; color: #94a3b8; margin-top: 8px; min-height: 1.2em; line-height: 1.45; white-space: pre-line; }
+  .status { font-size: .76rem; color: var(--fg-muted); margin-top: 8px; min-height: 1.2em; line-height: 1.45; white-space: pre-line; }
   .status.err { color: #f87171; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: #0ea5e9; color: #fff; padding: 12px 20px; border-radius: 12px;
@@ -110,13 +138,13 @@
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none;
     justify-content: center; align-items: center; z-index: 20; padding: 16px; }
   .modal-bg.show { display: flex; }
-  .modal { background: #141a26; border: 1px solid #232c3d; border-radius: 12px; padding: 16px;
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
     width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
   .modal h2 { margin: 0 0 6px; font-size: 1rem; }
-  .modal .full { font-size: .82rem; color: #e2e8f0; background: #0b0f17;
+  .modal .full { font-size: .82rem; color: var(--fg); background: var(--bg);
     border-radius: 10px; padding: 10px; margin: 8px 0; line-height: 1.5; word-break: break-word; white-space: pre-line; }
-  .modal .stats { font-size: .82rem; color: #94a3b8; }
-  .modal .chart2 { margin-top: 10px; background: #0b0f17; border-radius: 10px; padding: 8px; }
+  .modal .stats { font-size: .82rem; color: var(--fg-muted); }
+  .modal .chart2 { margin-top: 10px; background: var(--bg); border-radius: 10px; padding: 8px; }
   .modal .chart2 svg { width: 100%; height: auto; }
 </style>
 </head>
@@ -134,8 +162,23 @@
   <button id="tipClose" style="margin-left:8px;padding:2px 8px;border:none;border-radius:8px;background:transparent;color:#94a3b8;font-weight:700;cursor:pointer;" title="Masquer ce bandeau">✕</button>
 </div>
 
-<!-- Carte poids transporté (toujours visible) -->
-<div class="card" id="loadCard">
+<!-- Barre supérieure : titre + bascule de thème -->
+<div id="topBar">
+  <div class="tb-row">
+    <span class="tb-title">💶 Coût de trajet</span>
+    <span style="display:flex;gap:6px;">
+      <button id="loadBtn" title="Poids transporté" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">🧳</button>
+      <button id="prefBtn" title="Préférences" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">⚙️</button>
+      <button id="aideBtn" title="Aide &amp; formules" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">ℹ️</button>
+      <button id="themeBtn" title="Changer de thème">🌗</button>
+    </span>
+  </div>
+  <div id="tabBar"></div>
+</div>
+<!-- Dashboard d'accueil -->
+<div id="dash"></div>
+<!-- Poids transporté : panneau ouvert par l'icône 🧳 en haut -->
+<div class="card panel" id="pLoad">
   <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
   <div class="subtitle">Touche un bouton pour le mettre dans le véhicule</div>
   <div id="loadChips"></div>
@@ -152,7 +195,12 @@
   <div class="meta" id="massTotal"></div>
 </div>
 
-<button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">coût de trajet · km ou adresse</span></button>
+<div class="seg calcSeg" id="calcSeg" style="display:none;margin:12px;">
+      <button class="seg-btn active" data-calc="man">🗺️ Manuel</button>
+      <button class="seg-btn" data-calc="gpx">📥 GPX</button>
+      <button class="seg-btn" data-calc="gps">📍 GPS</button>
+    </div>
+<button class="home-btn" data-acc="p1">🧮 Calcul <span class="sub">itinéraire · GPX · GPS</span></button>
 <div class="panel" id="p1">
   <div class="card">
     <div class="seg">
@@ -177,7 +225,7 @@
       <div class="meta" id="tollParsed"></div>
     </div>
 
-    <div class="result">
+    <div class="result stick">
       <div class="amount" id="amount">—</div>
       <div class="detail" id="detail">Renseignez conso (et prix dans Réglages)</div>
     </div>
@@ -185,7 +233,7 @@
     <button class="btn blue" id="saveBtn1">💾 Enregistrer ce calcul</button>
     </div>
     <div id="manualRoute">
-    <div class="subtitle">Nécessite une connexion Internet (ouvrir dans Chrome, pas l'aperçu) <button class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</button></div>
+    <div class="subtitle">Nécessite une connexion Internet <button class="ibtn" data-info="info4" title="Comment ce calcul est fait">i</button></div>
 
     <label for="from">Lieu de départ</label>
     <input id="from" type="text" list="destList" placeholder="Ex. 20 avenue de Ségur, Paris" autocomplete="off">
@@ -252,7 +300,7 @@
     <button class="btn blue" id="calcRoute">🚗 Calculer le coût</button>
     <div class="status" id="status"></div>
 
-    <div class="result" id="result2" style="display:none;">
+    <div class="result stick" id="result2" style="display:none;">
       <div class="amount" id="amount2">—</div>
       <div class="detail" id="detail2"></div>
     </div>
@@ -304,7 +352,7 @@
       <div class="meta" id="tollGpxParsed" style="text-align:right;min-height:1em;"></div>
     </div>
 
-    <div class="result" id="gpxResult" style="display:none;">
+    <div class="result stick" id="gpxResult" style="display:none;">
       <div class="amount" id="gpxCost"></div>
       <div class="detail" id="gpxDetail"></div>
     </div>
@@ -313,7 +361,7 @@
     <button class="btn blue" id="gpxSave" style="display:none;">💾 Enregistrer ce trajet</button>
   </div>
 </div>
-<button class="home-btn" data-acc="pPlein">⛽ Pleins d'essence <span class="sub">saisie, conso réelle</span></button>
+<button class="home-btn" data-acc="pPlein">⛽ Pleins <span class="sub">saisie, conso réelle</span></button>
 <div class="panel" id="pPlein">
   <div class="card">
     <div class="row">
@@ -351,7 +399,7 @@
     </div>
     <button class="btn blue" id="addPlein">➕ Ajouter ce plein</button>
     <div class="meta" id="pleinStatus" style="text-align:left;white-space:pre-line;"></div>
-    <div id="consoChartBox" style="display:none; margin-top:12px; background:#0b0f17; border-radius:10px; padding:8px;">
+    <div id="consoChartBox" style="display:none; margin-top:12px; background:var(--bg); border-radius:10px; padding:8px;">
       <div id="consoChart"></div>
       <div class="legend"><span><span class="dot" style="background:#4ade80"></span>Consommation réelle entre pleins (L/100)</span></div>
     </div>
@@ -365,7 +413,7 @@
     <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
   </div>
 </div>
-<button class="home-btn" data-acc="pVeh">🚗 Mon véhicule <span class="sub">masse, courbe, coûts</span></button>
+<button class="home-btn" data-acc="pVeh">🚗 Véhicule <span class="sub">masse, courbe, coûts</span></button>
 <div class="panel" id="pVeh">
   <div class="card">
     <h2>⚖️ Masse</h2>
@@ -474,6 +522,14 @@
     <label for="price">Prix du litre</label>
     <div class="unit"><input id="price" type="number" inputmode="decimal" step="0.001" min="0" placeholder="1,75"><span>€/L</span></div>
 
+    <h2>🎊 Thème</h2>
+    <label for="themeSel">Couleur de l'app</label>
+    <select id="themeSel">
+      <option value="auto">Automatique — clair le jour, sombre la nuit (coucher du soleil à Paris)</option>
+      <option value="dark">Toujours sombre</option>
+      <option value="light">Toujours clair</option>
+    </select>
+
     <h2>⛰️ Source des altitudes</h2>
     <select id="elevSrc">
       <option value="ign">IGN — RGE ALTI (précis, France)</option>
@@ -517,7 +573,7 @@
     <div class="full" id="mFull"></div>
     <div class="meta" id="mDateLine" style="text-align:left;cursor:pointer;" title="Cliquer pour modifier la date de départ"></div>
     <div class="stats" id="mStats"></div>
-    <div id="mDateEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
+    <div id="mDateEdit" style="display:none;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;">
       <label for="mTripDate" style="margin:0;">📅 Date et heure de départ (utilisées pour le tri de l'historique)</label>
       <div class="row" style="margin-top:4px;">
         <div><input id="mTripDate" type="date"></div>
@@ -525,7 +581,7 @@
       </div>
       <button class="btn blue" id="mTripSave" style="margin-top:8px;">💾 Enregistrer la date et l'heure</button>
     </div>
-    <div id="mNameEdit" style="display:none;margin-top:10px;background:#0b0f17;border:1px solid #232c3d;border-radius:10px;padding:10px;">
+    <div id="mNameEdit" style="display:none;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;">
       <label for="mTripName" style="margin:0;">🏷️ Nom du trajet (optionnel)</label>
       <input id="mTripName" type="text" placeholder="Départ → Arrivée" style="margin-top:4px;">
       <button class="btn blue" id="mNameSave" style="margin-top:8px;">💾 Enregistrer le nom</button>
@@ -567,7 +623,7 @@
     </div>
     <div class="status" id="gpsStatus"></div>
 
-    <div class="result" id="gpsLive" style="display:none;">
+    <div class="result stick" id="gpsLive" style="display:none;">
       <div class="detail" style="margin:0;">Consommation instantanée</div>
       <div class="amount" id="gConso">—</div>
       <div class="detail" id="gSpeed">—</div>
@@ -593,9 +649,9 @@
     <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
   </div>
 </div>
-<footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:#64748b;line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v2.25 bêta · 30/10/2026</span><br>
-  Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:#64748b;">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
+<footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.8 bêta design · 30/10/2026</span><br>
+  Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
 <div class="modal-bg" id="infoBg">
@@ -647,14 +703,97 @@ function wireToll(inputId, metaId) {
   upd();
 }
 
-/* ---------- Accordéon (accueil) ---------- */
-document.querySelectorAll(".home-btn").forEach(b => b.addEventListener("click", () => {
-  const target = el(b.dataset.acc);
-  const isOpen = target.classList.contains("open");
+/* ---------- Onglets & sections ---------- */
+function openSection(acc) {
   document.querySelectorAll(".panel").forEach(x => x.classList.remove("open"));
   document.querySelectorAll(".home-btn").forEach(x => x.classList.remove("open"));
-  if (!isOpen) { target.classList.add("open"); b.classList.add("open"); }
-}));
+  el("calcSeg").style.display = "none";
+  if (acc === "p1") { showCalc(store.get("trajet_calcMode") || "man"); return; }
+  const t = el(acc);
+  if (!t) return;
+  t.classList.add("open");
+  document.querySelectorAll('.home-btn[data-acc="' + acc + '"]').forEach(x => x.classList.add("open"));
+}
+document.querySelectorAll(".home-btn").forEach(b => b.addEventListener("click", () => openSection(b.dataset.acc)));
+
+/* ---------- Onglets : les tuiles deviennent la barre d'onglets ---------- */
+(function buildTabs() {
+  const bar = el("tabBar");
+  document.querySelectorAll(".home-btn").forEach(b => {
+    if (["pGPX", "p5", "pPref", "pAide"].indexOf(b.dataset.acc) >= 0) b.remove();
+    else bar.appendChild(b);
+  });
+  // GPX et GPS rejoignent le groupe Calcul, juste après le panneau Manuel
+  const p1 = el("p1");
+  p1.parentNode.insertBefore(el("pGPX"), p1.nextSibling);
+  p1.parentNode.insertBefore(el("p5"), el("pGPX").nextSibling);
+  el("prefBtn").addEventListener("click", () => openSection("pPref"));
+  el("aideBtn").addEventListener("click", () => openSection("pAide"));
+})();
+function showCalc(which) {
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("open"));
+  document.querySelectorAll(".home-btn").forEach(x => x.classList.remove("open"));
+  const seg = el("calcSeg");
+  seg.style.display = "flex";
+  seg.querySelectorAll(".seg-btn").forEach(x => x.classList.toggle("active", x.dataset.calc === which));
+  el("p1").classList.toggle("open", which === "man");
+  el("pGPX").classList.toggle("open", which === "gpx");
+  el("p5").classList.toggle("open", which === "gps");
+  document.querySelector('.home-btn[data-acc="p1"]').classList.add("open");
+  store.set("trajet_calcMode", which);
+}
+el("calcSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-calc]");
+  if (b) showCalc(b.dataset.calc);
+});
+
+/* ---------- Poids transporté : icône 🧳 en haut ---------- */
+el("loadBtn").addEventListener("click", () => openSection("pLoad"));
+
+/* ---------- Thème : auto (coucher du soleil à Paris) / clair / sombre ---------- */
+function themeIsNight() {
+  const now = new Date();
+  let rise = 7.5, setT = 19; // repli si le service est indisponible
+  try {
+    const c = JSON.parse(store.get("trajet_sunCache") || "null");
+    if (c && c.d === now.toISOString().slice(0, 10)) { rise = c.r; setT = c.s; }
+  } catch (e) {}
+  const h = now.getHours() + now.getMinutes() / 60;
+  return h >= setT + 0.5 || h < rise - 0.5; // transition douce ±30 min
+}
+function themeApply() {
+  let t = store.get("trajet_theme") || "auto";
+  if (t === "auto") t = themeIsNight() ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", t);
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", t === "light" ? "#f8fafc" : "#0b0f17");
+  el("themeBtn").textContent = t === "light" ? "☀️" : "🌙";
+}
+async function themeFetchSun() {
+  try {
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&daily=sunrise,sunset&timezone=Europe%2FParis&forecast_days=1");
+    if (!r.ok) return;
+    const d = await r.json();
+    const p = (s) => { const a = s.slice(11, 16).split(":"); return +a[0] + a[1] / 60; };
+    store.set("trajet_sunCache", JSON.stringify({ d: new Date().toISOString().slice(0, 10), r: p(d.daily.sunrise[0]), s: p(d.daily.sunset[0]) }));
+    themeApply();
+  } catch (e) {}
+}
+el("themeBtn").addEventListener("click", () => {
+  const order = ["auto", "light", "dark"];
+  const cur = store.get("trajet_theme") || "auto";
+  const next = order[(order.indexOf(cur) + 1) % 3];
+  store.set("trajet_theme", next);
+  el("themeSel").value = next;
+  toast(next === "auto" ? "Thème : automatique (bascule au coucher du soleil à Paris)" : next === "light" ? "Thème : clair" : "Thème : sombre");
+  themeApply();
+});
+el("themeSel").value = store.get("trajet_theme") || "auto";
+el("themeSel").addEventListener("change", () => { store.set("trajet_theme", el("themeSel").value); themeApply(); });
+themeApply();
+themeFetchSun();
+setInterval(themeApply, 10 * 60 * 1000);
+setInterval(themeFetchSun, 60 * 60 * 1000);
 
 /* ---------- Sous-modes du Manuel : distance / adresse ---------- */
 el("mDistBtn").addEventListener("click", () => {
@@ -2754,8 +2893,26 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v2.25 bêta";
+const APP_VERSION = "v3.8 bêta design";
 const CHANGELOG = [
+  ["v3.8 bêta design" + " · 30/10/2026",
+    "🐛 Correctif mobile : le pied de page n\u2019était plus visible sous la barre d\u2019onglets basse — le contenu laisse désormais la place à la barre + la zone sûre iPhone."],
+  ["v3.7 bêta design" + " · 30/10/2026",
+    "🎗️ Héros du résultat : dès qu\u2019un calcul aboutit (Itinéraire, GPX, Temps réel), l\u2019app défile automatiquement vers le résultat, qui reste épinglé sous la barre du haut pendant qu\u2019on ajuste les réglages (péage, météo…) · ✏️ Itinéraire : sous-titre allégé (« Nécessite une connexion Internet »)."],
+  ["v3.6 bêta design" + " · 30/10/2026",
+    "🐛 Correctif dashboard : les cartes (Dernier trajet, CO₂e, Conso réelle) pouvaient dépasser la largeur de l\u2019écran et créer un scroll horizontal — elles se ressèrent désormais à la largeur disponible · 📱 Barre de\u0020navigation basse sur mobile : les onglets se fixent en bas de l\u2019écran (zone sûre iPhone respectée), la barre reste en haut sur grand écran."],
+  ["v3.5 bêta design" + " · 30/10/2026",
+    "🐛 Correctifs : texte des champs en couleur du thème (le blanc sur fond blanc en mode clair rendait l'adresse illisible) · mode démo : le segment Manuel / GPX / GPS apparaît bien (avant, seul le panneau Manuel s'ouvrait sans les sous-modes)."],
+  ["v3.4 bêta design" + " · 30/10/2026",
+    "🎗️ Résultat héros unifié : les encarts de résultat (Manuel, Itinéraire, GPX, Temps réel) partagent le même composant — dégradé suivant le thème, montant en plus grand, coins arrondis et légère ombre · 🗂️ Onglets : largeur répartie sur toute la barre, plus de léger scroll horizontal."],
+  ["v3.3 bêta design" + " · 30/10/2026",
+    "📊 Dashboard d'accueil : Dernier trajet · CO₂e du mois (et km/€ du mois) · Conso réelle entre les 2 derniers pleins, plus la ligne km/an prévus vs réels · 🧳 Poids transporté : la carte quitte la page d'accueil — icône 🧳 en haut à gauche de ⚙️, le panneau s'ouvre par un appui."],
+  ["v3.2 bêta design" + " · 30/10/2026",
+    "🧳 Poids transporté : la grande carte devient une ligne repliable — « 🧳 Poids transporté · 210 kg à bord » (ou « rien à bord »), touche pour ouvrir/refermer ; l'état ouvert/fermé est mémorisé."],
+  ["v3.1 bêta design" + " · 30/10/2026",
+    "🗂️ Navigation à 4 onglets : 🧮 Calcul (avec Manuel / GPX / GPS en sous-modes) · ⛽ Pleins · 🕘 Historique · 🚗 Véhicule — Préférences (⚙️) et Aide (ℹ️) deviennent des icônes en haut à droite · largeur des onglets corrigée."],
+  ["v3.0 bêta design" + " · 30/10/2026",
+    "🎊 Fondations du nouveau design (branche design-v3) : thème sombre/clair automatique selon le coucher du soleil à Paris (Open-Meteo, transition ±30 min) avec bascule 🌙/☀️ en haut et choix dans ⚙️ Préférences · barre d'onglets persistante : les tuiles deviennent des onglets horizontaux en haut, la section ouverte reste toujours visible · couleurs pilotées par variables CSS (palette « Bleu fidèle »)."],
   ["v2.25 bêta" + " · 30/10/2026",
     "🚗 Deux courbes de référence en plus dans 🚗 Mon véhicule, entre la compacte (308) et le SUV : « Utilitaire diesel (Kangoo, Partner…) » et « Familiale essence (508 SW, Mégane SW…) »."],
   ["v2.24 bêta" + " · 29/10/2026",
@@ -2960,9 +3117,7 @@ if (store.get("trajet_demoActive")) {
   el("demoBar").style.display = "block";
   el("demoBtn").textContent = "🧪 Quitter la démo (restaurer mes données)";
   // Trajet d'exemple pré-rempli dans Manuel → Adresse, invitation au calcul
-  el("p1").classList.add("open");
-  const p1btn = document.querySelector('[data-acc="p1"]');
-  if (p1btn) p1btn.classList.add("open");
+  showCalc("man");
   el("from").value = "20 avenue de Ségur, Paris";
   el("to").value = "Gare d'Orléans, Orléans";
   el("wxTime").value = "08:00";
@@ -3005,6 +3160,64 @@ renderFixed();
 renderLoads();
 if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
 updMassTotal();
+renderDashboard();
+const _renderHistory = renderHistory;
+renderHistory = function () { _renderHistory(); renderDashboard(); };
+const _saveEntry = saveEntry;
+saveEntry = function () { const res = _saveEntry.apply(null, arguments); renderDashboard(); return res; };
+/* ---------- Héros : défilement automatique vers le résultat dès qu'il apparaît ---------- */
+(function heroWatch() {
+  ["result2", "gpxResult", "gpsLive"].forEach(id => {
+    const n = el(id);
+    if (!n || typeof MutationObserver === "undefined") return;
+    let busy = false;
+    new MutationObserver(() => {
+      if (n.style.display !== "none" && !busy) {
+        busy = true;
+        setTimeout(() => { try { n.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} busy = false; }, 60);
+      }
+    }).observe(n, { attributes: true, attributeFilter: ["style"] });
+  });
+})();
+function renderDashboard() {
+  const box = el("dash");
+  if (!box) return;
+  const safe = (s) => String(s || "").replace(/[<>"']/g, "");
+  const trips = (history || []).filter(h => h.type !== "Plein");
+  const now = new Date();
+  const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let mCost = 0, mCo2 = 0, mKm = 0;
+  trips.forEach(t => {
+    const d = t.tripDate ? new Date(t.tripDate) : new Date(t.date);
+    if (d && d.getTime() >= mStart) {
+      mCost += t.total || 0; mCo2 += t.co2 || 0; mKm += t.dist || 0;
+    }
+  });
+  const last = trips[trips.length - 1];
+  const lastTxt = last ? safe(last.name || last.desc) : "aucun trajet";
+  const lastCost = last ? fmt(last.total || 0) : "—";
+  const pleins = (history || []).filter(h => h.type === "Plein" && !h.notFull && h.odo > 0);
+  let consoTxt = "—", consoSub = "ajoute 2 pleins complets";
+  if (pleins.length >= 2) {
+    const b = pleins[pleins.length - 2], a = pleins[pleins.length - 1];
+    if (a.odo - b.odo > 0) {
+      consoTxt = fmt1(a.liters / (a.odo - b.odo) * 100) + " L/100";
+      consoSub = "entre les 2 derniers pleins";
+    }
+  }
+  const prev = num(el("fdKmYear").value) || 0;
+  let reel = 0;
+  const ods = (odometers || []).slice().sort((x, y) => new Date(x.date) - new Date(y.date));
+  if (ods.length >= 2) {
+    const days = (new Date(ods[ods.length - 1].date) - new Date(ods[0].date)) / 86400000;
+    if (days >= 7) reel = (ods[ods.length - 1].km - ods[0].km) / days * 365;
+  }
+  box.innerHTML =
+    '<div class="dcard"><div class="dlabel">🕒 Dernier trajet</div><div class="dvalue">' + lastCost + '</div><div class="dsub">' + lastTxt + '</div></div>' +
+    '<div class="dcard"><div class="dlabel">🌍 CO₂e du mois</div><div class="dvalue">' + fmtCo2(mCo2) + '</div><div class="dsub">' + fmt1(mKm) + ' km · ' + fmt(mCost) + '</div></div>' +
+    '<div class="dcard"><div class="dlabel">📊 Conso réelle</div><div class="dvalue">' + consoTxt + '</div><div class="dsub">' + consoSub + '</div></div>' +
+    '<div class="dwide">🚗 ' + (prev ? fmt1(prev) + ' km/an prévus' : 'km/an : à régler dans 🚗 Véhicule') + (reel ? ' · ' + fmt1(reel) + ' km/an réels (relevés)' : '') + '</div>';
+}
 </script>
 </body>
 </html>
