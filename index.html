@@ -16,14 +16,13 @@
   #tabBar::-webkit-scrollbar { display: none; }
   #tabBar .home-btn { margin: 0; width: auto; flex: 0 0 auto; border-radius: 999px; padding: 8px 14px; font-size: .8rem; gap: 6px; }
   #tabBar .home-btn .sub { display: none; }
-  #loadCard { padding: 0; }
-  #loadHead { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px;
-    background: none; color: var(--fg); border: none; font-size: .92rem; font-weight: 600; cursor: pointer; text-align: left; }
-  #loadHead .lh-kg { font-size: .78rem; color: var(--fg-muted); font-weight: 400; margin-left: auto; }
-  #loadHead .lh-caret { color: var(--fg-dim); font-size: .8rem; transition: transform .18s ease; }
-  #loadCard.open #loadHead .lh-caret { transform: rotate(90deg); }
-  #loadBody { display: none; padding: 0 16px 16px; }
-  #loadCard.open #loadBody { display: block; }
+  #dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px; }
+  #dash .dcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  #dash .dlabel { font-size: .68rem; color: var(--fg-muted); }
+  #dash .dvalue { font-size: 1.05rem; font-weight: 800; margin-top: 4px; }
+  #dash .dsub { font-size: .66rem; color: var(--fg-dim); margin-top: 4px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #dash .dwide { grid-column: 1 / -1; font-size: .7rem; color: var(--fg-muted); text-align: center;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
 
   :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
   * { box-sizing: border-box; }
@@ -158,6 +157,7 @@
   <div class="tb-row">
     <span class="tb-title">💶 Coût de trajet</span>
     <span style="display:flex;gap:6px;">
+      <button id="loadBtn" title="Poids transporté" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">🧳</button>
       <button id="prefBtn" title="Préférences" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">⚙️</button>
       <button id="aideBtn" title="Aide &amp; formules" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">ℹ️</button>
       <button id="themeBtn" title="Changer de thème">🌗</button>
@@ -165,14 +165,11 @@
   </div>
   <div id="tabBar"></div>
 </div>
-<!-- Carte poids transporté : ligne repliable -->
-<div class="card" id="loadCard">
-  <button id="loadHead" title="Ouvrir / refermer le poids transporté">
-    <span class="lh-title">🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></span>
-    <span class="lh-kg" id="loadHeadKg">rien à bord</span>
-    <span class="lh-caret" id="loadCaret">▸</span>
-  </button>
-  <div id="loadBody">
+<!-- Dashboard d'accueil -->
+<div id="dash"></div>
+<!-- Poids transporté : panneau ouvert par l'icône 🧳 en haut -->
+<div class="card panel" id="pLoad">
+  <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
   <div class="subtitle">Touche un bouton pour le mettre dans le véhicule</div>
   <div id="loadChips"></div>
   <div id="loadComp" class="meta" style="text-align:left;min-height:1em;"></div>
@@ -186,7 +183,6 @@
     </div>
   </div>
   <div class="meta" id="massTotal"></div>
-  </div>
 </div>
 
 <div class="seg calcSeg" id="calcSeg" style="display:none;margin:12px;">
@@ -644,7 +640,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.2 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.3 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -741,21 +737,8 @@ el("calcSeg").addEventListener("click", (e) => {
   if (b) showCalc(b.dataset.calc);
 });
 
-/* ---------- Poids transporté : carte repliable ---------- */
-function updLoadHead() {
-  const v = parseFloat(String(el("massLoad").value).replace(",", ".")) || 0;
-  el("loadHeadKg").textContent = v > 0
-    ? (v % 1 ? fmt1(v) : String(Math.round(v))) + " kg à bord"
-    : "rien à bord";
-}
-el("loadHead").addEventListener("click", () => {
-  const open = el("loadCard").classList.toggle("open");
-  store.set("trajet_loadOpen", open ? "1" : "");
-});
-if (store.get("trajet_loadOpen") === "1") el("loadCard").classList.add("open");
-el("massLoad").addEventListener("input", updLoadHead);
-new MutationObserver(updLoadHead).observe(el("loadBody"), { childList: true, subtree: true, characterData: true });
-updLoadHead();
+/* ---------- Poids transporté : icône 🧳 en haut ---------- */
+el("loadBtn").addEventListener("click", () => openSection("pLoad"));
 
 /* ---------- Thème : auto (coucher du soleil à Paris) / clair / sombre ---------- */
 function themeIsNight() {
@@ -2900,8 +2883,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.2 bêta design";
+const APP_VERSION = "v3.3 bêta design";
 const CHANGELOG = [
+  ["v3.3 bêta design" + " · 30/10/2026",
+    "📊 Dashboard d'accueil : Dernier trajet · CO₂e du mois (et km/€ du mois) · Conso réelle entre les 2 derniers pleins, plus la ligne km/an prévus vs réels · 🧳 Poids transporté : la carte quitte la page d'accueil — icône 🧳 en haut à gauche de ⚙️, le panneau s'ouvre par un appui."],
   ["v3.2 bêta design" + " · 30/10/2026",
     "🧳 Poids transporté : la grande carte devient une ligne repliable — « 🧳 Poids transporté · 210 kg à bord » (ou « rien à bord »), touche pour ouvrir/refermer ; l'état ouvert/fermé est mémorisé."],
   ["v3.1 bêta design" + " · 30/10/2026",
@@ -3157,6 +3142,50 @@ renderFixed();
 renderLoads();
 if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
 updMassTotal();
+renderDashboard();
+const _renderHistory = renderHistory;
+renderHistory = function () { _renderHistory(); renderDashboard(); };
+const _saveEntry = saveEntry;
+saveEntry = function () { const res = _saveEntry.apply(null, arguments); renderDashboard(); return res; };
+function renderDashboard() {
+  const box = el("dash");
+  if (!box) return;
+  const safe = (s) => String(s || "").replace(/[<>"']/g, "");
+  const trips = (history || []).filter(h => h.type !== "Plein");
+  const now = new Date();
+  const mStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let mCost = 0, mCo2 = 0, mKm = 0;
+  trips.forEach(t => {
+    const d = t.tripDate ? new Date(t.tripDate) : new Date(t.date);
+    if (d && d.getTime() >= mStart) {
+      mCost += t.total || 0; mCo2 += t.co2 || 0; mKm += t.dist || 0;
+    }
+  });
+  const last = trips[trips.length - 1];
+  const lastTxt = last ? safe(last.name || last.desc) : "aucun trajet";
+  const lastCost = last ? fmt(last.total || 0) : "—";
+  const pleins = (history || []).filter(h => h.type === "Plein" && !h.notFull && h.odo > 0);
+  let consoTxt = "—", consoSub = "ajoute 2 pleins complets";
+  if (pleins.length >= 2) {
+    const b = pleins[pleins.length - 2], a = pleins[pleins.length - 1];
+    if (a.odo - b.odo > 0) {
+      consoTxt = fmt1(a.liters / (a.odo - b.odo) * 100) + " L/100";
+      consoSub = "entre les 2 derniers pleins";
+    }
+  }
+  const prev = num(el("fdKmYear").value) || 0;
+  let reel = 0;
+  const ods = (odometers || []).slice().sort((x, y) => new Date(x.date) - new Date(y.date));
+  if (ods.length >= 2) {
+    const days = (new Date(ods[ods.length - 1].date) - new Date(ods[0].date)) / 86400000;
+    if (days >= 7) reel = (ods[ods.length - 1].km - ods[0].km) / days * 365;
+  }
+  box.innerHTML =
+    '<div class="dcard"><div class="dlabel">🕒 Dernier trajet</div><div class="dvalue">' + lastCost + '</div><div class="dsub">' + lastTxt + '</div></div>' +
+    '<div class="dcard"><div class="dlabel">🌍 CO₂e du mois</div><div class="dvalue">' + fmtCo2(mCo2) + '</div><div class="dsub">' + fmt1(mKm) + ' km · ' + fmt(mCost) + '</div></div>' +
+    '<div class="dcard"><div class="dlabel">📊 Conso réelle</div><div class="dvalue">' + consoTxt + '</div><div class="dsub">' + consoSub + '</div></div>' +
+    '<div class="dwide">🚗 ' + (prev ? fmt1(prev) + ' km/an prévus' : 'km/an : à régler dans 🚗 Véhicule') + (reel ? ' · ' + fmt1(reel) + ' km/an réels (relevés)' : '') + '</div>';
+}
 </script>
 </body>
 </html>
