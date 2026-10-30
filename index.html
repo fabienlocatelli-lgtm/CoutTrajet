@@ -14,7 +14,7 @@
   #themeBtn { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: .95rem; cursor: pointer; }
   #tabBar { display: flex; gap: 4px; overflow-x: auto; padding: 0 8px 8px; scrollbar-width: none; }
   #tabBar::-webkit-scrollbar { display: none; }
-  #tabBar .home-btn { margin: 0; flex: 0 0 auto; border-radius: 999px; padding: 8px 14px; font-size: .8rem; gap: 6px; }
+  #tabBar .home-btn { margin: 0; width: auto; flex: 0 0 auto; border-radius: 999px; padding: 8px 14px; font-size: .8rem; gap: 6px; }
   #tabBar .home-btn .sub { display: none; }
 
   :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
@@ -149,7 +149,11 @@
 <div id="topBar">
   <div class="tb-row">
     <span class="tb-title">💶 Coût de trajet</span>
-    <button id="themeBtn" title="Changer de thème">🌗</button>
+    <span style="display:flex;gap:6px;">
+      <button id="prefBtn" title="Préférences" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">⚙️</button>
+      <button id="aideBtn" title="Aide &amp; formules" style="background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;cursor:pointer;">ℹ️</button>
+      <button id="themeBtn" title="Changer de thème">🌗</button>
+    </span>
   </div>
   <div id="tabBar"></div>
 </div>
@@ -171,7 +175,12 @@
   <div class="meta" id="massTotal"></div>
 </div>
 
-<button class="home-btn" data-acc="p1">🛣️ Manuel <span class="sub">coût de trajet · km ou adresse</span></button>
+<div class="seg calcSeg" id="calcSeg" style="display:none;margin:12px;">
+      <button class="seg-btn active" data-calc="man">🗺️ Manuel</button>
+      <button class="seg-btn" data-calc="gpx">📥 GPX</button>
+      <button class="seg-btn" data-calc="gps">📍 GPS</button>
+    </div>
+<button class="home-btn" data-acc="p1">🧮 Calcul <span class="sub">itinéraire · GPX · GPS</span></button>
 <div class="panel" id="p1">
   <div class="card">
     <div class="seg">
@@ -332,7 +341,7 @@
     <button class="btn blue" id="gpxSave" style="display:none;">💾 Enregistrer ce trajet</button>
   </div>
 </div>
-<button class="home-btn" data-acc="pPlein">⛽ Pleins d'essence <span class="sub">saisie, conso réelle</span></button>
+<button class="home-btn" data-acc="pPlein">⛽ Pleins <span class="sub">saisie, conso réelle</span></button>
 <div class="panel" id="pPlein">
   <div class="card">
     <div class="row">
@@ -384,7 +393,7 @@
     <button class="btn gray" id="clearHist" style="display:none;">🗑️ Vider tout l'historique</button>
   </div>
 </div>
-<button class="home-btn" data-acc="pVeh">🚗 Mon véhicule <span class="sub">masse, courbe, coûts</span></button>
+<button class="home-btn" data-acc="pVeh">🚗 Véhicule <span class="sub">masse, courbe, coûts</span></button>
 <div class="panel" id="pVeh">
   <div class="card">
     <h2>⚖️ Masse</h2>
@@ -621,7 +630,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.0 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.1 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -674,20 +683,49 @@ function wireToll(inputId, metaId) {
   upd();
 }
 
-/* ---------- Accordéon (accueil) ---------- */
-document.querySelectorAll(".home-btn").forEach(b => b.addEventListener("click", () => {
-  const target = el(b.dataset.acc);
-  const isOpen = target.classList.contains("open");
+/* ---------- Onglets & sections ---------- */
+function openSection(acc) {
   document.querySelectorAll(".panel").forEach(x => x.classList.remove("open"));
   document.querySelectorAll(".home-btn").forEach(x => x.classList.remove("open"));
-  target.classList.add("open"); b.classList.add("open");
-}));
+  el("calcSeg").style.display = "none";
+  if (acc === "p1") { showCalc(store.get("trajet_calcMode") || "man"); return; }
+  const t = el(acc);
+  if (!t) return;
+  t.classList.add("open");
+  document.querySelectorAll('.home-btn[data-acc="' + acc + '"]').forEach(x => x.classList.add("open"));
+}
+document.querySelectorAll(".home-btn").forEach(b => b.addEventListener("click", () => openSection(b.dataset.acc)));
 
 /* ---------- Onglets : les tuiles deviennent la barre d'onglets ---------- */
 (function buildTabs() {
   const bar = el("tabBar");
-  document.querySelectorAll(".home-btn").forEach(b => bar.appendChild(b));
+  document.querySelectorAll(".home-btn").forEach(b => {
+    if (["pGPX", "p5", "pPref", "pAide"].indexOf(b.dataset.acc) >= 0) b.remove();
+    else bar.appendChild(b);
+  });
+  // GPX et GPS rejoignent le groupe Calcul, juste après le panneau Manuel
+  const p1 = el("p1");
+  p1.parentNode.insertBefore(el("pGPX"), p1.nextSibling);
+  p1.parentNode.insertBefore(el("p5"), el("pGPX").nextSibling);
+  el("prefBtn").addEventListener("click", () => openSection("pPref"));
+  el("aideBtn").addEventListener("click", () => openSection("pAide"));
 })();
+function showCalc(which) {
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("open"));
+  document.querySelectorAll(".home-btn").forEach(x => x.classList.remove("open"));
+  const seg = el("calcSeg");
+  seg.style.display = "flex";
+  seg.querySelectorAll(".seg-btn").forEach(x => x.classList.toggle("active", x.dataset.calc === which));
+  el("p1").classList.toggle("open", which === "man");
+  el("pGPX").classList.toggle("open", which === "gpx");
+  el("p5").classList.toggle("open", which === "gps");
+  document.querySelector('.home-btn[data-acc="p1"]').classList.add("open");
+  store.set("trajet_calcMode", which);
+}
+el("calcSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-calc]");
+  if (b) showCalc(b.dataset.calc);
+});
 
 /* ---------- Thème : auto (coucher du soleil à Paris) / clair / sombre ---------- */
 function themeIsNight() {
@@ -2832,8 +2870,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.0 bêta design";
+const APP_VERSION = "v3.1 bêta design";
 const CHANGELOG = [
+  ["v3.1 bêta design" + " · 30/10/2026",
+    "🗂️ Navigation à 4 onglets : 🧮 Calcul (avec Manuel / GPX / GPS en sous-modes) · ⛽ Pleins · 🕘 Historique · 🚗 Véhicule — Préférences (⚙️) et Aide (ℹ️) deviennent des icônes en haut à droite · largeur des onglets corrigée."],
   ["v3.0 bêta design" + " · 30/10/2026",
     "🎊 Fondations du nouveau design (branche design-v3) : thème sombre/clair automatique selon le coucher du soleil à Paris (Open-Meteo, transition ±30 min) avec bascule 🌙/☀️ en haut et choix dans ⚙️ Préférences · barre d'onglets persistante : les tuiles deviennent des onglets horizontaux en haut, la section ouverte reste toujours visible · couleurs pilotées par variables CSS (palette « Bleu fidèle »)."],
   ["v2.25 bêta" + " · 30/10/2026",
