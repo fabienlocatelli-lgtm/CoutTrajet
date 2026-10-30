@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0b0f17" />
 <title>Coût de trajet voiture thermique</title>
-<style>  :root { --bg:#0b0f17; --card:#141a26; --border:#232c3d; --fg:#e2e8f0; --fg-muted:#94a3b8; --fg-dim:#64748b; --accent:#38bdf8; --on-accent:#0f172a; --switch-bg:#334155; color-scheme: dark; }
-  html[data-theme="light"] { --bg:#f8fafc; --card:#ffffff; --border:#e2e8f0; --fg:#0f172a; --fg-muted:#475569; --fg-dim:#64748b; --accent:#0284c7; --on-accent:#ffffff; --switch-bg:#cbd5e1; color-scheme: light; }
+<style>  :root { --bg:#0b0f17; --card:#141a26; --border:#232c3d; --fg:#e2e8f0; --fg-muted:#94a3b8; --fg-dim:#64748b; --accent:#38bdf8; --on-accent:#0f172a; --switch-bg:#334155; --hero-a:#0369a1; --hero-b:#0f766e; color-scheme: dark; }
+  html[data-theme="light"] { --bg:#f8fafc; --card:#ffffff; --border:#e2e8f0; --fg:#0f172a; --fg-muted:#475569; --fg-dim:#64748b; --accent:#0284c7; --on-accent:#ffffff; --switch-bg:#cbd5e1; --hero-a:#0284c7; --hero-b:#0d9488; color-scheme: light; }
   body, .card, .home-btn, .seg-btn, .load-chip, .toggle, .drawer, .segment, .modal, .hist-item, details.info, .btn, input, select, #topBar, #tabBar { transition: background-color .18s ease, color .18s ease, border-color .18s ease; }
   #topBar { position: sticky; top: 0; z-index: 15; background: var(--bg); border-bottom: 1px solid var(--border); }
   #topBar .tb-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 2px; }
@@ -14,7 +14,8 @@
   #themeBtn { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: .95rem; cursor: pointer; }
   #tabBar { display: flex; gap: 4px; overflow-x: auto; padding: 0 8px 8px; scrollbar-width: none; }
   #tabBar::-webkit-scrollbar { display: none; }
-  #tabBar .home-btn { margin: 0; width: auto; flex: 0 0 auto; border-radius: 999px; padding: 8px 14px; font-size: .8rem; gap: 6px; }
+  #tabBar .home-btn { margin: 0; width: auto; flex: 1 1 0; justify-content: center; white-space: nowrap;
+    border-radius: 999px; padding: 8px 4px; font-size: .78rem; gap: 6px; }
   #tabBar .home-btn .sub { display: none; }
   #dash { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px; }
   #dash .dcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
@@ -92,9 +93,10 @@
   .btn.blue { background: var(--accent); color: var(--on-accent); }
   .btn:disabled { opacity: .5; }
   .btn:active { opacity: .8; }
-  .result { margin-top: 14px; background: linear-gradient(135deg, #0ea5e9, #0f766e);
-    border-radius: 12px; padding: 14px; text-align: center; }
-  .result .amount { font-size: 1.9rem; font-weight: 800; color: #fff; }
+  .result { margin-top: 14px; background: linear-gradient(135deg, var(--hero-a), var(--hero-b));
+    border-radius: 16px; padding: 18px 14px; text-align: center;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, .28); }
+  .result .amount { font-size: 2.1rem; font-weight: 800; color: #fff; letter-spacing: -.02em; }
   .result .detail { font-size: .8rem; color: #d1fae5; margin-top: 5px; min-height: 1.2em; line-height: 1.55; }
   .formula { font-size: .72rem; color: var(--fg-muted); text-align: center; margin-top: 6px; line-height: 1.55; }
   .hint { font-size: .7rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.45; }
@@ -640,7 +642,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.3 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.4 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2883,8 +2885,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.3 bêta design";
+const APP_VERSION = "v3.4 bêta design";
 const CHANGELOG = [
+  ["v3.4 bêta design" + " · 30/10/2026",
+    "🎗️ Résultat héros unifié : les encarts de résultat (Manuel, Itinéraire, GPX, Temps réel) partagent le même composant — dégradé suivant le thème, montant en plus grand, coins arrondis et légère ombre · 🗂️ Onglets : largeur répartie sur toute la barre, plus de léger scroll horizontal."],
   ["v3.3 bêta design" + " · 30/10/2026",
     "📊 Dashboard d'accueil : Dernier trajet · CO₂e du mois (et km/€ du mois) · Conso réelle entre les 2 derniers pleins, plus la ligne km/an prévus vs réels · 🧳 Poids transporté : la carte quitte la page d'accueil — icône 🧳 en haut à gauche de ⚙️, le panneau s'ouvre par un appui."],
   ["v3.2 bêta design" + " · 30/10/2026",
