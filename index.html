@@ -581,7 +581,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.13 bêta design · 30/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.13.1 bêta design · 30/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -888,11 +888,6 @@ el("massLoad").addEventListener("input", renderLoads);
 
 /* ---------- Réglages : prix, masse, aéro ---------- */
 el("price").value = store.get("trajet_price") || "";
-if (el("price").value === "") { // repli : prix du dernier plein saisi
-  const lp = (typeof history !== "undefined" ? history : []).filter(h => h.type === "Plein")
-    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  if (lp) { el("price").value = lp.priceL; store.set("trajet_price", String(lp.priceL)); }
-}
 el("price").addEventListener("input", () => store.set("trajet_price", el("price").value));
 el("massVeh").value = store.get("trajet_massVeh") || "1200";
 el("massLoad").value = store.get("trajet_massLoad") || "0";
@@ -2958,8 +2953,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.13 bêta design";
+const APP_VERSION = "v3.13.1 bêta design";
 const CHANGELOG = [
+  ["v3.13.1 bêta design · 30/10/2026",
+    "🐛 Correctif v3.13 : le repli « prix du dernier plein » s'exécutait avant le chargement de l'historique (ReferenceError) et coupait le script — démo, modales et parcours d'accueil ne répondaient plus. Il s'exécute désormais au bon moment, lors de l'initialisation."],
   ["v3.13 bêta design · 30/10/2026",
     "⛽ Pleins : le prix du litre déménage de ⚙️ Préférences vers ⛽ Pleins, pré-rempli avec le prix du dernier plein saisi (et repris à l'ajout d'un plein s'il était vide) · 🕘 liste des pleins directement dans ⛽ Pleins (clic = détail, ✕ = suppression ; ils restent aussi dans l'Historique) · 🧪 démo enrichie : 4 pleins et 9 trajets · 📋 À propos (version, licence, contribuer) déplacé du pied de page vers ℹ️ Aide & formules."],
   ["v3.12 bêta design · 30/10/2026",
@@ -3233,6 +3230,12 @@ history.forEach(h => {
 });
 if (retroCo2) { saveHistory(); toast(retroCo2 + " ancien(s) trajet(s) : CO₂e rétro-calculé ✔"); }
 
+// Repli : prix du litre = prix du dernier plein saisi (si jamais renseigné)
+if (el("price").value === "") {
+  const lp = history.filter(h => h.type === "Plein")
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  if (lp) { el("price").value = lp.priceL; store.set("trajet_price", String(lp.priceL)); }
+}
 renderSegments();
 renderCurveSelect();
 renderCurveTable();
