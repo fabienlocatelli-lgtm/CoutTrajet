@@ -16,6 +16,14 @@
   #tabBar::-webkit-scrollbar { display: none; }
   #tabBar .home-btn { margin: 0; width: auto; flex: 0 0 auto; border-radius: 999px; padding: 8px 14px; font-size: .8rem; gap: 6px; }
   #tabBar .home-btn .sub { display: none; }
+  #loadCard { padding: 0; }
+  #loadHead { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px;
+    background: none; color: var(--fg); border: none; font-size: .92rem; font-weight: 600; cursor: pointer; text-align: left; }
+  #loadHead .lh-kg { font-size: .78rem; color: var(--fg-muted); font-weight: 400; margin-left: auto; }
+  #loadHead .lh-caret { color: var(--fg-dim); font-size: .8rem; transition: transform .18s ease; }
+  #loadCard.open #loadHead .lh-caret { transform: rotate(90deg); }
+  #loadBody { display: none; padding: 0 16px 16px; }
+  #loadCard.open #loadBody { display: block; }
 
   :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
   * { box-sizing: border-box; }
@@ -157,9 +165,14 @@
   </div>
   <div id="tabBar"></div>
 </div>
-<!-- Carte poids transporté (toujours visible) -->
+<!-- Carte poids transporté : ligne repliable -->
 <div class="card" id="loadCard">
-  <h1>🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></h1>
+  <button id="loadHead" title="Ouvrir / refermer le poids transporté">
+    <span class="lh-title">🧳 Poids transporté <button class="ibtn" data-info="info1" title="Effet du poids">i</button></span>
+    <span class="lh-kg" id="loadHeadKg">rien à bord</span>
+    <span class="lh-caret" id="loadCaret">▸</span>
+  </button>
+  <div id="loadBody">
   <div class="subtitle">Touche un bouton pour le mettre dans le véhicule</div>
   <div id="loadChips"></div>
   <div id="loadComp" class="meta" style="text-align:left;min-height:1em;"></div>
@@ -173,6 +186,7 @@
     </div>
   </div>
   <div class="meta" id="massTotal"></div>
+  </div>
 </div>
 
 <div class="seg calcSeg" id="calcSeg" style="display:none;margin:12px;">
@@ -630,7 +644,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.1 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.2 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -726,6 +740,22 @@ el("calcSeg").addEventListener("click", (e) => {
   const b = e.target.closest("[data-calc]");
   if (b) showCalc(b.dataset.calc);
 });
+
+/* ---------- Poids transporté : carte repliable ---------- */
+function updLoadHead() {
+  const v = parseFloat(String(el("massLoad").value).replace(",", ".")) || 0;
+  el("loadHeadKg").textContent = v > 0
+    ? (v % 1 ? fmt1(v) : String(Math.round(v))) + " kg à bord"
+    : "rien à bord";
+}
+el("loadHead").addEventListener("click", () => {
+  const open = el("loadCard").classList.toggle("open");
+  store.set("trajet_loadOpen", open ? "1" : "");
+});
+if (store.get("trajet_loadOpen") === "1") el("loadCard").classList.add("open");
+el("massLoad").addEventListener("input", updLoadHead);
+new MutationObserver(updLoadHead).observe(el("loadBody"), { childList: true, subtree: true, characterData: true });
+updLoadHead();
 
 /* ---------- Thème : auto (coucher du soleil à Paris) / clair / sombre ---------- */
 function themeIsNight() {
@@ -2870,8 +2900,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.1 bêta design";
+const APP_VERSION = "v3.2 bêta design";
 const CHANGELOG = [
+  ["v3.2 bêta design" + " · 30/10/2026",
+    "🧳 Poids transporté : la grande carte devient une ligne repliable — « 🧳 Poids transporté · 210 kg à bord » (ou « rien à bord »), touche pour ouvrir/refermer ; l'état ouvert/fermé est mémorisé."],
   ["v3.1 bêta design" + " · 30/10/2026",
     "🗂️ Navigation à 4 onglets : 🧮 Calcul (avec Manuel / GPX / GPS en sous-modes) · ⛽ Pleins · 🕘 Historique · 🚗 Véhicule — Préférences (⚙️) et Aide (ℹ️) deviennent des icônes en haut à droite · largeur des onglets corrigée."],
   ["v3.0 bêta design" + " · 30/10/2026",
