@@ -663,7 +663,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.10 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.11 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2906,8 +2906,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.10 bêta design";
+const APP_VERSION = "v3.11 bêta design";
 const CHANGELOG = [
+  ["v3.11 bêta design · 30/10/2026",
+    "🧮 Démarrage : l\u2019onglet Calcul (avec ton dernier sous-mode Manuel / GPX / GPS) est ouvert dès le lancement de l\u2019app — plus besoin d\u2019y toucher avant de calculer un trajet."],
   ["v3.10 bêta design · 30/10/2026",
     "🐛 Dashboard : « Dernier trajet » affiche désormais le trajet à la date la plus récente (avant : le dernier dans l’ordre de saisie, qui ne correspondait pas forcément) · ✂️ Ligne km/an allégée : « X km/an réels » seule quand les relevés existent, sinon « à régler dans 🚗 Véhicule » avec un bouton i qui explique prévus/réels."],
   ["v3.9 bêta design" + " · 30/10/2026",
@@ -3178,6 +3180,7 @@ renderLoads();
 if (store.get("trajet_kmYear") !== null) { el("fdKmYear").value = store.get("trajet_kmYear"); renderFixed(); }
 updMassTotal();
 renderDashboard();
+if (!store.get("trajet_demoActive")) openSection("p1"); // onglet 🧮 Calcul ouvert dès le démarrage
 const _renderHistory = renderHistory;
 renderHistory = function () { _renderHistory(); renderDashboard(); };
 const _saveEntry = saveEntry;
