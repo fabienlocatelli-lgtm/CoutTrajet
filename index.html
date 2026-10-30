@@ -32,6 +32,19 @@
     .toast { bottom: 84px; }
   }
 
+  /* ---------- Écran large : page élargie, dashboard en colonne droite ---------- */
+  @media (min-width: 900px) {
+    .wrap { max-width: 640px; }
+  }
+  @media (min-width: 1150px) {
+    body { padding: 0 0 32px; padding-right: 368px; }
+    #dash { position: fixed; top: 110px; right: 16px; width: 320px; margin: 0;
+      grid-template-columns: 1fr; max-height: calc(100vh - 134px); overflow-y: auto;
+      scrollbar-width: thin; }
+    #dash .dvalue { font-size: 1.2rem; }
+    #dash .dsub { white-space: normal; }
+  }
+
   :root { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 0 0 32px; }
@@ -650,7 +663,7 @@
   </div>
 </div>
 <footer style="text-align:center;margin:20px 12px 4px;font-size:.7rem;color:var(--fg-dim);line-height:1.6;">
-  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.8 bêta design · 30/10/2026</span><br>
+  <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.9 bêta design · 30/10/2026</span><br>
   Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
 </footer>
 </div>
@@ -2893,8 +2906,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.8 bêta design";
+const APP_VERSION = "v3.9 bêta design";
 const CHANGELOG = [
+  ["v3.9 bêta design" + " · 30/10/2026",
+    "🖥️ Écran large : la page s\u2019élargit dès 900 px, et dès 1150 px le dashboard (dernier trajet, CO\u2082e du mois, conso réelle, km/an) se détache en colonne fixe à droite — tes chiffres clés restent visibles pendant que tu navigues dans les sections, qui occupent la colonne de gauche."],
   ["v3.8 bêta design" + " · 30/10/2026",
     "🐛 Correctif mobile : le pied de page n\u2019était plus visible sous la barre d\u2019onglets basse — le contenu laisse désormais la place à la barre + la zone sûre iPhone."],
   ["v3.7 bêta design" + " · 30/10/2026",
