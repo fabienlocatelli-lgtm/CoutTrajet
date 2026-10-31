@@ -159,6 +159,11 @@
   .modal .stats { font-size: .82rem; color: var(--fg-muted); }
   .modal .chart2 { margin-top: 10px; background: var(--bg); border-radius: 10px; padding: 8px; }
   .modal .chart2 svg { width: 100%; height: auto; }
+  /* v3.14.1 : correctif — les règles mobiles plus haut étaient écrasées par les règles de base suivies ; on les réaffirme en dernier */
+  @media (max-width: 600px) {
+    body { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+    .toast { bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+  }
 </style>
 </head>
 <body>
@@ -581,7 +586,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.14 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.14.1 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -693,7 +698,7 @@ function toast(msg) {
   const t = el("toast");
   t.textContent = msg;
   t.style.display = "block";
-  setTimeout(() => { t.style.display = "none"; }, 2500);
+  setTimeout(() => { t.style.display = "none"; }, 4200);
 }
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -2149,8 +2154,8 @@ function renderHistory() {
           (h.compte !== false ? " checked" : "") + '>' +
         '<div class="left">' +
           '<div class="date">' + (h.tripDate ? new Date(h.tripDate) : d).toLocaleDateString("fr-FR") + '</div>' +
-          '<div class="desc" style="color:#e2e8f0;">' + (h.name || h.desc || "Trajet") +
-            ' · ' + fmt1(h.dist || 0) + ' km' + badge + '</div>' +
+          '<div class="desc" style="color:var(--fg);">' + (h.name || h.desc || "Trajet") + badge + '</div>' +
+          '<div class="desc" style="color:var(--fg-muted);">' + fmt1(h.dist || 0) + ' km</div>' +
         '</div>' +
         '<div class="cost" style="text-align:right;">' + fmt(cost) +
           ((h.fixed || 0) > 0
@@ -2963,8 +2968,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.14 bêta design";
+const APP_VERSION = "v3.14.1 bêta design";
 const CHANGELOG = [
+  ["v3.14.1 bêta design · 31/10/2026",
+    "🐛 Correctif mobile : les règles mobiles (marge sous le contenu, position du toast) étaient écrasées par les règles de base déclarées après elles — l\u2019ombre du dernier bloc et le toast étaient coupés par la barre de navigation. Elles sont maintenant réaffirmées en fin de feuille · 🕘 Historique : km sur leur propre ligne · 🌗 nom du trajet en couleur du thème (lisible en mode jour) · 🔔 toast affiché 4,2 s au lieu de 2,5 s."],
   ["v3.14 bêta design · 31/10/2026",
     "🛡️ GPS : le bouton « 📌 Étalonner » n\u2019apparaît qu\u2019après confirmation « je ne suis pas au volant » (sécurité conducteur) · 🕘 Historique : lignes allégées « date · nom du trajet · nb de km » (le détail complet reste au clic ; vignette de droite conservée) · 📱 marge basse corrigée : l\u2019ombre du dernier bloc n\u2019est plus coupée par la barre de navigation."],
   ["v3.13.2 bêta design · 30/10/2026",
