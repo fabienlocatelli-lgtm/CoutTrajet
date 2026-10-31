@@ -163,6 +163,7 @@
   @media (max-width: 600px) {
     body { padding-bottom: calc(51px + env(safe-area-inset-bottom, 0px)) !important; }
     .toast { bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+    #dash .dsub { white-space: normal !important; }
   }
 </style>
 </head>
@@ -589,7 +590,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.17 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.17.1 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -3005,8 +3006,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.17 bêta design";
+const APP_VERSION = "v3.17.1 bêta design";
 const CHANGELOG = [
+  ["v3.17.1 bêta design · 31/10/2026",
+    "📱 Dashboard : la ligne « km · € » de la carte CO₂e du mois était tronquée par les points de suspension en mobile — le « € » coupé ; la ligne passe à la ligne si besoin."],
   ["v3.17 bêta design · 31/10/2026",
     "🐛 la durée était transmise mais jetée à l\u2019enregistrement (champ manquant dans la sauvegarde) — elle est maintenant réellement stockée · 🐛 anciens trajets « Temps réel » sans distance stockée : la distance est rétro-complétée depuis le libellé (« X km en Y min »), plus de « 0,0 km » dans la liste · 🅿️ GPX : la trace est aussi tronquée en amont — le temps immobile AVANT le départ (logger lancé trop tôt) ne compte plus dans la durée ni les km."],
   ["v3.16.1 bêta design · 31/10/2026",
