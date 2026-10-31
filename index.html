@@ -589,7 +589,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.16.1 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.17 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -2269,7 +2269,7 @@ function saveEntry(mode, desc, total, conso, extra) {
     litres: extra.litres || null, fuel: extra.fuel || null, toll: extra.toll || 0,
     co2: extra.co2 || null,
     wind: extra.wind || null, slope: extra.slope || null,
-    fixed: extra.fixed || 0, dist: extra.dist || 0, compte: true, adjusted: null,
+    fixed: extra.fixed || 0, dist: extra.dist || 0, dur: extra.dur || 0, compte: true, adjusted: null,
     full: extra.full || "", profile: extra.profile || null, deniv: extra.deniv || null,
     oneWayKm: extra.oneWayKm || 0, name: extra.name || null, tripDate: extra.tripDate || null });
   saveHistory();
@@ -2762,20 +2762,22 @@ async function gpxCompute(txt, name, quiet) {
   let pts;
   try { pts = gpxParse(txt); }
   catch (e) { if (!quiet) gSetStatus("« " + name + " » : " + e.message, true); return null; }
-  /* v3.15 : queue immobile (logger oublié allumé) — la trace est coupée après la dernière vitesse positive */
+  /* v3.17 : immobiles en début ET fin de trace (logger oublié) — la trace est coupée autour du mouvement réel */
   let tailCutMs = 0;
   {
-    let lastMoving = -1;
+    let firstMoving = -1, lastMoving = -1;
     for (let i = 1; i < pts.length; i++) {
       const dM = haversine([pts[i - 1].lon, pts[i - 1].lat], [pts[i].lon, pts[i].lat]);
       const dtS = (pts[i].t !== null && pts[i - 1].t !== null) ? (pts[i].t - pts[i - 1].t) / 1000 : null;
       const vv = (dtS !== null && dtS > 0) ? dM / dtS * 3.6 : null;
-      if (vv !== null ? vv >= 3 : dM >= 8) lastMoving = i;
+      if (vv !== null ? vv >= 3 : dM >= 8) { lastMoving = i; if (firstMoving < 0) firstMoving = i; }
     }
-    if (lastMoving >= 0 && lastMoving < pts.length - 1) {
+    if (lastMoving >= 0) {
       if (pts[lastMoving].t !== null && pts[pts.length - 1].t !== null)
         tailCutMs = pts[pts.length - 1].t - pts[lastMoving].t;
-      pts = pts.slice(0, lastMoving + 1);
+      if (firstMoving > 0 && pts[0].t !== null && pts[firstMoving].t !== null)
+        tailCutMs += pts[firstMoving].t - pts[0].t;
+      pts = pts.slice(firstMoving, lastMoving + 1);
     }
   }
   let hasEle = pts.some(p => p.ele !== null && isFinite(p.ele));
@@ -2964,7 +2966,7 @@ async function gpxCompute(txt, name, quiet) {
           (saveL >= 0 ? "−" : "+") + fmtCo2(Math.abs(saveL) * co2PerL()) + "CO₂e sur le carburant";
     }
     if (res.tailCut > 60e3)
-      dG += "\n🅿️ " + Math.round(res.tailCut / 60e3) + " min immobiles en fin de trace ignorés (logger oublié ?)";
+      dG += "\n🅿️ " + Math.round(res.tailCut / 60e3) + " min immobiles en début/fin de trace ignorés (logger oublié ?)";
     el("gpxDetail").textContent = dG;
     el("gpxCostNoFixed").textContent = price > 0 && fixed > 0 ? "Sans coûts fixes : " + fmt(res.fuel) : "";
     el("gpxWx").textContent =
@@ -3003,8 +3005,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.16.1 bêta design";
+const APP_VERSION = "v3.17 bêta design";
 const CHANGELOG = [
+  ["v3.17 bêta design · 31/10/2026",
+    "🐛 la durée était transmise mais jetée à l\u2019enregistrement (champ manquant dans la sauvegarde) — elle est maintenant réellement stockée · 🐛 anciens trajets « Temps réel » sans distance stockée : la distance est rétro-complétée depuis le libellé (« X km en Y min »), plus de « 0,0 km » dans la liste · 🅿️ GPX : la trace est aussi tronquée en amont — le temps immobile AVANT le départ (logger lancé trop tôt) ne compte plus dans la durée ni les km."],
   ["v3.16.1 bêta design · 31/10/2026",
     "⏱️ Rétro-complétion : la durée des anciens trajets (enregistrés avant la v3.16) est récupérée depuis leur libellé « X km en Y min » et sauvegardée — elle s\u2019affiche maintenant aussi dans l\u2019historique et le détail pour ces trajets."],
   ["v3.16 bêta design · 31/10/2026",
@@ -3299,6 +3303,15 @@ history.forEach(h => {
   }
 });
 if (retroDur) { saveHistory(); toast(retroDur + " ancien(s) trajet(s) : durée récupérée ✔"); }
+/* Rétro-complétion v3.17 : distance manquante des anciens trajets GPX / Temps réel (lue dans le libellé « X km… ») */
+let retroDist = 0;
+history.forEach(h => {
+  if (h.type !== "Plein" && !h.dist && (h.mode === "GPX" || h.mode === "Temps réel")) {
+    const mdDist = /^(\d+(?:[.,]\d+)?) km(?: en \d+ min)?/.exec(h.desc || "");
+    if (mdDist) { h.dist = parseFloat(mdDist[1].replace(",", ".")); retroDist++; }
+  }
+});
+if (retroDist) { saveHistory(); toast(retroDist + " ancien(s) trajet(s) : distance récupérée ✔"); }
 if (retroCo2) { saveHistory(); toast(retroCo2 + " ancien(s) trajet(s) : CO₂e rétro-calculé ✔"); }
 
 // Repli : prix du litre = prix du dernier plein saisi (si jamais renseigné)
