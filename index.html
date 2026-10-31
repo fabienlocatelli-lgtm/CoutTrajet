@@ -589,7 +589,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.15 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.16 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -697,6 +697,10 @@ const num = (v) => parseFloat(String(v).replace(",", "."));
 const fmt = (x) => x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const fmt1 = (x) => x.toFixed(1).replace(".", ",");
 const fmt2 = (x) => x.toFixed(2).replace(".", ",");
+function fmtDur(sec) {
+  const m = Math.round(sec / 60);
+  return m >= 60 ? Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") : m + " min";
+}
 function toast(msg) {
   const t = el("toast");
   t.textContent = msg;
@@ -1975,7 +1979,8 @@ el("saveBtn3").addEventListener("click", async () => {
       (price > 0 ? "Coût carburant : " + fmt(gpsTrip.litres * price) : "Prix non renseigné") +
       (name ? "\n" + name + " (lieux © OpenStreetMap)" : ""),
       litres: gpsTrip.litres, co2: co2Total(gpsTrip.litres), fuel: price > 0 ? gpsTrip.litres * price : null, toll: 0,
-      fixed: fixed3, dist: gpsTrip.dist, name: name });
+      fixed: fixed3, dist: gpsTrip.dist, name: name,
+      dur: Math.round((Date.now() - gpsTrip.t0) / 1000) });
 });
 
 /* ---------- Historique partagé (trajets + pleins) ---------- */
@@ -2162,7 +2167,8 @@ function renderHistory() {
         '<div class="left">' +
           '<div class="date">' + (h.tripDate ? new Date(h.tripDate) : d).toLocaleDateString("fr-FR") + '</div>' +
           '<div class="desc" style="color:var(--fg);">' + (h.name || h.desc || "Trajet") + badge + '</div>' +
-          '<div class="desc" style="color:var(--fg-muted);">' + fmt1(h.dist || 0) + ' km</div>' +
+          '<div class="desc" style="color:var(--fg-muted);">' + fmt1(h.dist || 0) + ' km' +
+            (h.dur > 0 ? ' · ⏱️ ' + fmtDur(h.dur) : '') + '</div>' +
         '</div>' +
         '<div class="cost" style="text-align:right;">' + fmt(cost) +
           ((h.fixed || 0) > 0
@@ -2400,6 +2406,7 @@ function openDetail(h) {
   }
   const head = [];
   if (h.dist > 0) head.push("📏 " + fmt1(h.dist) + " km");
+  if (h.dur > 0) head.push("⏱️ " + fmtDur(h.dur));
   if (h.conso) head.push("Conso : " + h.conso);
   if (den) head.push(den);
   el("mStats").textContent = head.join(" · ") +
@@ -2856,7 +2863,7 @@ async function gpxCompute(txt, name, quiet) {
     let v = seg.v;
     if (v === null) v = hasTime ? null : 80; // sans horodatage : vitesse supposée 80 km/h
     if (v === null || v < 3) continue;
-    const vc = Math.min(v, getMaxSpeed());
+    const vc = v; // v3.16 : trace réelle — vitesse non plafonnée ; la courbe borne au-delà de son dernier point
     let grade = 0;
     if (altS.length >= 2) {
       const mid = (seg.dStart + seg.dEnd) / 2;
@@ -2980,6 +2987,7 @@ function gpxSave(res, name, fromDir) {
     { full: "Trajet importé d'une trace GPX\n" + name,
       litres: res.litres, co2: co2Total(res.litres), fuel: res.price > 0 ? res.fuel : null, toll: res.toll || 0,
       wind: res.wind, slope: res.slope, deniv: res.deniv || null,
+      dur: res.dur || null,
       profile: res.profile && res.profile.length ? res.profile : null, oneWayKm: res.dist,
       fixed: res.fixed, dist: res.dist, name: name.replace(/\.gpx$/i, ""),
       tripDate: res.t0 ? new Date(res.t0).toISOString() : null });
@@ -2995,8 +3003,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.15 bêta design";
+const APP_VERSION = "v3.16 bêta design";
 const CHANGELOG = [
+  ["v3.16 bêta design · 31/10/2026",
+    "⏱️ Durée du trajet sauvegardée (GPX et GPS temps réel) et affichée dans l\u2019historique et le détail · 📈 GPX : les vitesses réelles de la trace ne sont plus plafonnées à la vitesse max — un dépassement à 120 km/h apparaît tel quel dans le graphique et la courbe de conso est lue à la vitesse réelle (bornée par le dernier point de la courbe au-delà)."],
   ["v3.15 bêta design · 31/10/2026",
     "📊 Légende ajoutée aux graphiques (conso · vitesse · altitude) · 📈 GPX : le graphique s\u2019affiche avec le résultat · 🅿️ GPX : la queue immobile en fin de trace (logger oublié allumé) est ignorée après la dernière vitesse positive — durée et km de dérive non comptés, mention affichée. Rappel : les arrêts comptent déjà 0 L dans tous les modes."],
   ["v3.14.1 bêta design · 31/10/2026",
