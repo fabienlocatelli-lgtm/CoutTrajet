@@ -28,7 +28,7 @@
     #tabBar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 15; background: var(--bg);
       border-top: 1px solid var(--border); padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -2px 12px rgba(0,0,0,.25); }
-    body { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+    body { padding-bottom: calc(106px + env(safe-area-inset-bottom, 0px)); }
     .toast { bottom: 84px; }
   }
 
@@ -581,7 +581,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.13.2 bêta design · 30/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.14 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -663,8 +663,12 @@
       <label class="switch"><input type="checkbox" id="wxRt"><span class="slider"></span></label>
     </div>
 
+    <div class="toggle" id="calibGuard" style="display:none;">
+      <span class="tlabel">🛡️ Sécurité : je confirme que je ne suis pas au volant</span>
+      <label class="switch"><input type="checkbox" id="calibNotDriver"><span class="slider"></span></label>
+    </div>
     <button class="btn gray" id="gpsCalib" style="display:none;">📌 Étalonner avec le tableau de bord</button>
-    <div class="hint">Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
+    <div class="hint">L\u2019étalonnage ne s\u2019affiche qu\u2019après la confirmation de sécurité. Roulez à vitesse stabilisée, appuyez, tapez la conso lue au tableau de bord :
       le point s'ajoute à votre courbe.</div>
 
     <button class="btn blue" id="saveBtn3" style="display:none;">💾 Enregistrer ce trajet</button>
@@ -1755,7 +1759,9 @@ el("gpsStart").addEventListener("click", () => {
   el("gpsStop").style.display = "block";
   el("gpsReset").style.display = "block";
   el("gpsLive").style.display = "block";
-  el("gpsCalib").style.display = "block";
+  el("calibGuard").style.display = "flex";
+  el("calibNotDriver").checked = false;
+  el("gpsCalib").style.display = "none";
   keepAwakeOn();
   gStatus("En attente du signal GPS…");
   const GPS_OPTS = { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }; // position fraîche obligatoire (comme avant la v2.1)
@@ -1882,6 +1888,8 @@ el("gpsStop").addEventListener("click", () => {
   keepAwakeOff();
   el("gpsStart").style.display = "block";
   el("gpsStop").style.display = "none";
+  el("calibGuard").style.display = "none";
+  el("calibNotDriver").checked = false;
   el("gpsCalib").style.display = "none";
   gStatus("Trajet arrêté.");
 });
@@ -1904,6 +1912,10 @@ el("gpsCalib").addEventListener("click", () => {
   toast("Point d'étalonnage ajouté : " + vNow + " km/h → " + c + " L/100 ✔");
 });
 
+el("calibNotDriver").addEventListener("change", () => {
+  el("gpsCalib").style.display = el("calibNotDriver").checked ? "block" : "none";
+  if (el("calibNotDriver").checked) toast("Sécurité confirmée — étalonnage autorisé. Ne manipule pas l\u2019app en conduisant.");
+});
 el("gpsReset").addEventListener("click", () => {
   if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (gpsWatchdog) { clearInterval(gpsWatchdog); gpsWatchdog = null; }
@@ -1913,6 +1925,8 @@ el("gpsReset").addEventListener("click", () => {
   el("gpsStop").style.display = "none";
   el("gpsReset").style.display = "none";
   el("gpsLive").style.display = "none";
+  el("calibGuard").style.display = "none";
+  el("calibNotDriver").checked = false;
   el("gpsCalib").style.display = "none";
   el("saveBtn3").style.display = "none";
   ["gDist", "gLitres", "gCost", "gAvg", "gConso", "gSpeed"].forEach(id => el(id).textContent = "—");
@@ -2134,13 +2148,9 @@ function renderHistory() {
         '<input type="checkbox" class="cb" data-hcheck="' + h.id + '"' +
           (h.compte !== false ? " checked" : "") + '>' +
         '<div class="left">' +
-          '<div class="date">' + (h.tripDate
-            ? "trajet du " + new Date(h.tripDate).toLocaleDateString("fr-FR") +
-              " à " + new Date(h.tripDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-            : dateTxt) + ' <span class="mode">· ' + h.mode + '</span></div>' +
-          (h.name ? '<div class="desc" style="color:#e2e8f0;">' + h.name + '</div>' : '') +
-          '<div class="desc">' + (h.desc || "") + badge + '</div>' +
-          (h.conso ? '<div class="desc" style="color:#38bdf8;">Conso : ' + h.conso + '</div>' : '') +
+          '<div class="date">' + (h.tripDate ? new Date(h.tripDate) : d).toLocaleDateString("fr-FR") + '</div>' +
+          '<div class="desc" style="color:#e2e8f0;">' + (h.name || h.desc || "Trajet") +
+            ' · ' + fmt1(h.dist || 0) + ' km' + badge + '</div>' +
         '</div>' +
         '<div class="cost" style="text-align:right;">' + fmt(cost) +
           ((h.fixed || 0) > 0
@@ -2953,8 +2963,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.13.2 bêta design";
+const APP_VERSION = "v3.14 bêta design";
 const CHANGELOG = [
+  ["v3.14 bêta design · 31/10/2026",
+    "🛡️ GPS : le bouton « 📌 Étalonner » n\u2019apparaît qu\u2019après confirmation « je ne suis pas au volant » (sécurité conducteur) · 🕘 Historique : lignes allégées « date · nom du trajet · nb de km » (le détail complet reste au clic ; vignette de droite conservée) · 📱 marge basse corrigée : l\u2019ombre du dernier bloc n\u2019est plus coupée par la barre de navigation."],
   ["v3.13.2 bêta design · 30/10/2026",
     "🐛 Correctif v3.13 : la liste « 🕘 Tes pleins » restait vide au chargement de la page (le premier affichage avait lieu avant l\u2019installation du hook qui la dessine) — elle apparaît maintenant dès le démarrage."],
   ["v3.13.1 bêta design · 30/10/2026",
