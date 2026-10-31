@@ -589,7 +589,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.16 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.16.1 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -3003,8 +3003,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.16 bêta design";
+const APP_VERSION = "v3.16.1 bêta design";
 const CHANGELOG = [
+  ["v3.16.1 bêta design · 31/10/2026",
+    "⏱️ Rétro-complétion : la durée des anciens trajets (enregistrés avant la v3.16) est récupérée depuis leur libellé « X km en Y min » et sauvegardée — elle s\u2019affiche maintenant aussi dans l\u2019historique et le détail pour ces trajets."],
   ["v3.16 bêta design · 31/10/2026",
     "⏱️ Durée du trajet sauvegardée (GPX et GPS temps réel) et affichée dans l\u2019historique et le détail · 📈 GPX : les vitesses réelles de la trace ne sont plus plafonnées à la vitesse max — un dépassement à 120 km/h apparaît tel quel dans le graphique et la courbe de conso est lue à la vitesse réelle (bornée par le dernier point de la courbe au-delà)."],
   ["v3.15 bêta design · 31/10/2026",
@@ -3288,6 +3290,15 @@ history.forEach(h => {
     retroCo2++;
   }
 });
+/* Rétro-complétion v3.16.1 : durée manquante des anciens trajets (lue dans le libellé « X km en Y min ») */
+let retroDur = 0;
+history.forEach(h => {
+  if (h.type !== "Plein" && !h.dur) {
+    const mdDur = /(\d+(?:[.,]\d+)?) km en (\d+) min/.exec(h.desc || "");
+    if (mdDur) { h.dur = parseInt(mdDur[2], 10) * 60; retroDur++; }
+  }
+});
+if (retroDur) { saveHistory(); toast(retroDur + " ancien(s) trajet(s) : durée récupérée ✔"); }
 if (retroCo2) { saveHistory(); toast(retroCo2 + " ancien(s) trajet(s) : CO₂e rétro-calculé ✔"); }
 
 // Repli : prix du litre = prix du dernier plein saisi (si jamais renseigné)
