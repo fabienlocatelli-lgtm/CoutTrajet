@@ -432,6 +432,12 @@
     </div>
     <h2>🕘 Tes pleins</h2>
     <div id="pleinsList"></div>
+
+    <h2>📅 Par mois</h2>
+    <div id="monthTable"></div>
+
+    <h2>⛽ Par période entre pleins</h2>
+    <div id="periodTable"></div>
   </div>
 </div>
 
@@ -590,7 +596,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.17.1 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.18 bêta design · 31/10/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -1995,6 +2001,7 @@ const saveHistory = () => store.set("trajet_history", JSON.stringify(history));
    - coût ajusté = L_ajusté × prix au litre du plein précédent + péage
    - période réconciliable seulement si les DEUX pleins sont complets */
 function reconcile() {
+  history = history.filter(h => !h.rattrap); // v3.18 : trajets de rattrapage recalculés à chaque réconciliation
   history.forEach(h => { if (h.type !== "Plein") h.adjusted = null; });
   const sorted = history.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
   const pleins = sorted.filter(h => h.type === "Plein");
@@ -2005,8 +2012,36 @@ function reconcile() {
     const trips = sorted.filter(h => h.type !== "Plein" && h.compte &&
       (h.litres || 0) > 0 &&
       new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    if (!trips.length) continue;
+    /* v3.18 : écart km compteur ↔ km déclarés → trajet de rattrapage (positif ou négatif) */
+    let ratTxt = "";
+    const kmTrips = trips.reduce((s, tr) => s + (tr.dist || 0), 0);
+    if ((A.odo || 0) > 0 && (B.odo || 0) > 0 && kmTrips > 0 && trips.every(tr => (tr.dist || 0) > 0)) {
+      const kmOdo = B.odo - A.odo;
+      const diff = kmOdo - kmTrips;
+      if (kmOdo > 0 && Math.abs(diff) >= 1) {
+        const avgL = trips.reduce((s, tr) => s + tr.litres, 0) / kmTrips; // L/km moyen de la période
+        const rtL = avgL * diff;
+        const fpkR = fixedPerKm();
+        const rtFixed = fpkR ? fpkR.perKm * diff : 0;
+        const rt = { id: "R" + A.id + "-" + B.id, date: B.date, mode: "Rattrapage",
+          desc: (diff > 0 ? "+" : "−") + fmt1(Math.abs(diff)) + " km : écart compteur ↔ trajets déclarés",
+          total: rtL * A.priceL + rtFixed, conso: fmt1(avgL * 100) + " L/100 (moyenne de la période)",
+          litres: rtL, fuel: rtL * A.priceL, toll: 0, co2: co2Total(rtL), wind: null, slope: null,
+          fixed: rtFixed, dist: diff, compte: true, adjusted: null,
+          full: "Trajet de rattrapage : " + (diff > 0 ? "km parcourus non enregistrés" : "km déclarés en trop") +
+            " entre les pleins du " + new Date(A.date).toLocaleDateString("fr-FR") + " et du " +
+            new Date(B.date).toLocaleDateString("fr-FR") + " — conso moyenne de la période appliquée.",
+          profile: null, deniv: null, oneWayKm: 0,
+          name: "Rattrapage " + new Date(B.date).toLocaleDateString("fr-FR"),
+          tripDate: null, rattrap: true };
+        history.push(rt);
+        trips.push(rt);
+        ratTxt = " · rattrapage " + (diff > 0 ? "+" : "−") + fmt1(Math.abs(diff)) + " km";
+      }
+    }
     const est = trips.reduce((s, t) => s + t.litres, 0);
-    if (!trips.length || est <= 0) continue;
+    if (est <= 0) continue;
     const k = B.liters / est;
     trips.forEach(t => {
       t.adjusted = { litres: t.litres * k,
@@ -2017,7 +2052,7 @@ function reconcile() {
     lastMsg = "Période du " + new Date(A.date).toLocaleDateString("fr-FR") + " au " +
       new Date(B.date).toLocaleDateString("fr-FR") + " : estimé " + fmt1(est) +
       " L, réel " + fmt1(B.liters) + " L → facteur ×" + k.toFixed(3) +
-      " appliqué à " + trips.length + " trajet(s) coché(s).";
+      " appliqué à " + trips.length + " trajet(s) coché(s)." + ratTxt;
   }
   saveHistory();
   const consoPts = [];
@@ -2131,6 +2166,52 @@ el("pleinsList").addEventListener("click", (e) => {
   const c = e.target.closest("[data-popen]");
   if (c) { const h = (history || []).find(x => String(x.id) === String(c.dataset.popen)); if (h) openDetail(h); }
 });
+function renderMonthlyTable() {
+  const box = el("monthTable"); if (!box) return;
+  const trips = (history || []).filter(h => h.type !== "Plein");
+  const byM = {};
+  trips.forEach(h => {
+    const d = h.tripDate ? new Date(h.tripDate) : new Date(h.date);
+    if (!d || isNaN(d)) return;
+    const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    if (!byM[key]) byM[key] = { n: 0, km: 0, L: 0, c: 0, co2: 0 };
+    const o = byM[key];
+    o.n++; o.km += h.dist || 0;
+    o.L += h.adjusted ? h.adjusted.litres : (h.litres || 0);
+    o.c += h.adjusted ? h.adjusted.cost : (h.total || 0);
+    o.co2 += h.adjusted && h.adjusted.co2 ? h.adjusted.co2 : (h.co2 || 0);
+  });
+  const keys = Object.keys(byM).sort().reverse();
+  if (!keys.length) { box.innerHTML = '<div class="empty">Aucun trajet</div>'; return; }
+  let s = '<table style="font-size:.72rem;"><tr><th>Mois</th><th>Trajets</th><th>km</th><th>Litres</th><th>Coût</th><th>CO₂e</th></tr>';
+  keys.forEach(k => {
+    const o = byM[k];
+    s += '<tr><td>' + k.replace("-", "/") + '</td><td>' + o.n + '</td><td>' + fmt1(o.km) + '</td><td>' + fmt1(o.L) +
+      '</td><td>' + fmt(o.c) + '</td><td>' + fmtCo2(o.co2) + '</td></tr>';
+  });
+  box.innerHTML = s + '</table>';
+}
+function renderPeriodTable() {
+  const box = el("periodTable"); if (!box) return;
+  const sorted = (history || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pleins = sorted.filter(h => h.type === "Plein" && !h.notFull && h.odo > 0);
+  if (pleins.length < 2) { box.innerHTML = '<div class="empty">Il faut 2 pleins complets avec le km compteur.</div>'; return; }
+  let s = '<table style="font-size:.72rem;"><tr><th>Période</th><th>km compteur</th><th>L remis</th><th>L/100</th><th>km déclarés</th><th>Écart</th></tr>';
+  let rows = 0;
+  for (let i = 0; i < pleins.length - 1; i++) {
+    const A = pleins[i], B = pleins[i + 1];
+    const km = B.odo - A.odo; if (km <= 0) continue;
+    const trips = sorted.filter(h => h.type !== "Plein" && h.compte !== false &&
+      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    const kmTrips = trips.reduce((sm, tr) => sm + (tr.dist || 0), 0);
+    const ec = km - kmTrips; rows++;
+    s += '<tr><td>' + new Date(A.date).toLocaleDateString("fr-FR") + ' → ' + new Date(B.date).toLocaleDateString("fr-FR") +
+      '</td><td>' + fmt1(km) + '</td><td>' + fmt1(B.liters) + '</td><td>' + fmt1(B.liters / km * 100) +
+      '</td><td>' + fmt1(kmTrips) + '</td><td>' + (ec >= 0 ? "+" : "−") + fmt1(Math.abs(ec)) + '</td></tr>';
+  }
+  if (!rows) { box.innerHTML = '<div class="empty">Périodes non exploitables (compteurs incohérents).</div>'; return; }
+  box.innerHTML = s + '</table>';
+}
 function renderHistory() {
   const c = el("history");
   c.innerHTML = "";
@@ -2167,7 +2248,7 @@ function renderHistory() {
           (h.compte !== false ? " checked" : "") + '>' +
         '<div class="left">' +
           '<div class="date">' + (h.tripDate ? new Date(h.tripDate) : d).toLocaleDateString("fr-FR") + '</div>' +
-          '<div class="desc" style="color:var(--fg);">' + (h.name || h.desc || "Trajet") + badge + '</div>' +
+          '<div class="desc" style="color:var(--fg);">' + (h.name || h.desc || "Trajet") + '</div>' +
           '<div class="desc" style="color:var(--fg-muted);">' + fmt1(h.dist || 0) + ' km' +
             (h.dur > 0 ? ' · ⏱️ ' + fmtDur(h.dur) : '') + '</div>' +
         '</div>' +
@@ -2394,6 +2475,8 @@ function openDetail(h) {
     parts.push("🌍 Émissions : " + fmtCo2(co2v) + "CO₂e (puits à la roue)" +
       (h.adjusted && h.adjusted.co2 && Math.abs(h.adjusted.k - 1) > 0.001 ? " — ajustée ×" + h.adjusted.k.toFixed(3) : ""));
   }
+  if (h.adjusted && Math.abs(h.adjusted.k - 1) > 0.001)
+    parts.push("⚖️ Réconcilié : litres ×" + h.adjusted.k.toFixed(3) + " (conso réelle entre les pleins)");
   if ((h.wind != null && Math.abs(h.wind) >= 0.005) || (h.slope != null && Math.abs(h.slope) >= 0.005))
     parts.push("🌬️ Effets sur ce trajet : vent " + (h.wind >= 0 ? "+" : "") + fmt2(h.wind || 0) +
       " L · pente " + (h.slope >= 0 ? "+" : "") + fmt2(h.slope || 0) + " L");
@@ -3006,8 +3089,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.17.1 bêta design";
+const APP_VERSION = "v3.18 bêta design";
 const CHANGELOG = [
+  ["v3.18 bêta design · 31/10/2026",
+    "📅 Historique : tableau récapitulatif par mois (trajets, km, litres, coût, CO₂e) · ⛽ Historique : tableau par période entre pleins (km compteur, litres remis, L/100 réels, km déclarés, écart) · ⚖️ badge « ajusté ×k » déplacé du récap vers le détail au clic · 🧮 Rattrapage : si les km du compteur entre deux pleins diffèrent des km déclarés, un trajet de rattrapage (positif ou négatif, à la conso moyenne de la période) est créé — la réconciliation se fait sur la base des km réels du compteur."],
   ["v3.17.1 bêta design · 31/10/2026",
     "📱 Dashboard : la ligne « km · € » de la carte CO₂e du mois était tronquée par les points de suspension en mobile — le « € » coupé ; la ligne passe à la ligne si besoin."],
   ["v3.17 bêta design · 31/10/2026",
@@ -3337,10 +3422,12 @@ updMassTotal();
 renderDashboard();
 if (!store.get("trajet_demoActive")) openSection("p1"); // onglet 🧮 Calcul ouvert dès le démarrage
 const _renderHistory = renderHistory;
-renderHistory = function () { _renderHistory(); renderDashboard(); renderPleinsList(); };
+renderHistory = function () { _renderHistory(); renderDashboard(); renderPleinsList(); renderMonthlyTable(); renderPeriodTable(); };
 const _saveEntry = saveEntry;
 saveEntry = function () { const res = _saveEntry.apply(null, arguments); renderDashboard(); return res; };
 renderPleinsList(); // v3.13.2 : premier affichage — l\u2019appel d\u2019init de renderHistory() précédait l\u2019installation du wrapper
+renderMonthlyTable();
+renderPeriodTable();
 /* ---------- Héros : défilement automatique vers le résultat dès qu'il apparaît ---------- */
 (function heroWatch() {
   ["result2", "gpxResult", "gpsLive"].forEach(id => {
