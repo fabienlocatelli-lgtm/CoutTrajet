@@ -501,7 +501,8 @@
     </div>
     <button class="btn gray" id="adjustCurve">🎯 Ajuster toute la courbe à ce point</button>
     <div class="hint">Toute la courbe est mise à l'échelle pour passer par votre point. Les autres points gardent la même forme.</div>
-    <button class="btn gray" id="fillRealConso" style="display:none;">📊 Reprendre le point réel de la dernière période (conso + vitesse moyennes)</button>
+    <button class="btn blue" id="calibReal" style="display:none;">🎯 Calibrer la courbe sur les litres réels (toutes périodes)</button>
+    <div class="hint">Cherche le facteur d'échelle unique qui fait matcher l'intégrale de la courbe sur les vitesses réelles (histogramme des traces GPX, sinon vitesse moyenne du trajet) avec les litres remis aux pleins. Moindres carrés sur toutes les périodes réconciliables, pondérées par km compteur.</div>
 
     <h2>🔧 Coûts fixes du véhicule <button class="ibtn" data-info="info9" title="Comment sont calculés les coûts fixes">i</button></h2>
     <div id="fixedList"></div>
@@ -599,7 +600,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.19 bêta design · 01/11/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.20 bêta design · 01/11/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -1116,14 +1117,54 @@ el("adjustCurve").addEventListener("click", () => {
   toast("Courbe ajustée (×" + k.toFixed(2) + ") ✔");
 });
 
-/* v3.19 : reprendre le point (conso réelle, vitesse moyenne) de la dernière période réconciliée */
-el("fillRealConso").addEventListener("click", () => {
-  if (!lastRealPoint) { toast("Aucune période réconciliable pour l'instant (2 pleins complets avec km compteur requis)"); return; }
-  el("myConso").value = Math.round(lastRealPoint.conso * 10) / 10;
-  el("mySpeed").value = Math.round(lastRealPoint.speed);
-  toast("Point réel rempli : " + fmt1(lastRealPoint.conso) + " L/100 à " + fmt1(lastRealPoint.speed) +
-    " km/h (moyennes de la période) — vérifie puis clique sur 🎯");
-});
+/* v3.20 : calibrer la courbe sur les litres réels — facteur d'échelle k unique, moindres carrés.
+   E = intégrale de la courbe courante sur les km réels aux vitesses réelles (histogramme GPX,
+   sinon vitesse moyenne dist/durée) ; L = litres remis au 2e plein ; F = litres des trajets sans
+   profil de vitesse (insensibles à k) ; pondération par km compteur : k = Σ w·E·(L−F) / Σ w·E². */
+function calibRealCurve() {
+  const sorted = history.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pleins = sorted.filter(h => h.type === "Plein");
+  const dayOf = (x) => { const d = new Date(x.tripDate || x.date); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  let num = 0, den = 0, nPer = 0, nTr = 0;
+  for (let i = 0; i < pleins.length - 1; i++) {
+    const A = pleins[i], B = pleins[i + 1];
+    if (A.notFull || B.notFull || !(A.odo > 0) || !(B.odo > 0)) continue;
+    const km = B.odo - A.odo; if (km <= 0) continue;
+    const dA = dayOf(A), dB = dayOf(B);
+    const trips = sorted.filter(h => h.type !== "Plein" && h.compte !== false &&
+      dayOf(h) > dA && dayOf(h) <= dB);
+    const wd = trips.filter(tr => !tr.rattrap && (tr.dist || 0) > 0 && (tr.dur || 0) > 0);
+    const avgV = wd.length ? wd.reduce((s, tr) => s + tr.dist, 0) / (wd.reduce((s, tr) => s + tr.dur, 0) / 3600) : 0;
+    let E = 0, F = 0;
+    trips.forEach(tr => {
+      if (tr.rattrap) { // km de rattrapage : évalués à la vitesse moyenne de la période
+        if (avgV > 0 && tr.dist) E += tr.dist * interp(curve, avgV) / 100;
+        return;
+      }
+      if (tr.vhist && tr.vhist.length) {
+        let hit = false;
+        for (let b = 0; b < tr.vhist.length; b++)
+          if ((tr.vhist[b] || 0) > 0) { E += tr.vhist[b] * interp(curve, b * 10 + 5) / 100; hit = true; }
+        if (hit) nTr++;
+      } else if ((tr.dist || 0) > 0 && (tr.dur || 0) > 0) {
+        E += tr.dist * interp(curve, tr.dist / tr.dur * 3600) / 100; nTr++;
+      } else {
+        F += tr.litres || 0; // trajet sans profil : litres enregistrés, insensibles à k
+      }
+    });
+    if (E > 0) { num += km * E * (B.liters - F); den += km * E * E; nPer++; }
+  }
+  if (!nPer || den <= 0) { toast("Calibrage impossible : aucune période avec des km à vitesse connue (importe des traces GPX)"); return; }
+  const k = num / den;
+  if (!(k > 0.2 && k < 5)) { toast("Calibrage aberrant (×" + k.toFixed(2) + ") — annulé, vérifie pleins et trajets"); return; }
+  curve = curve.map(p => [p[0], Math.round(p[1] * k * 10) / 10]);
+  store.set("trajet_curve", JSON.stringify(curve));
+  renderCurveTable();
+  reconcile();
+  renderHistory();
+  toast("Courbe calibrée ×" + k.toFixed(3) + " (" + nPer + " période(s), " + nTr + " trajet(s) à vitesse connue) ✔");
+}
+el("calibReal").addEventListener("click", calibRealCurve);
 
 /* ---------- Conditions multiplicateurs ---------- */
 function renderConds() {
@@ -2104,11 +2145,11 @@ function reconcile() {
       new Date(last.from).toLocaleDateString("fr-FR") + " au " +
       new Date(last.to).toLocaleDateString("fr-FR") + ")." +
       (vAvg > 0 ? "\nVitesse moyenne des trajets de la période : " + fmt1(vAvg) +
-        " km/h — bouton « 📊 Reprendre le point réel » dans 🚗 Véhicule." : "");
+        " km/h — calibrage intégral possible via « 🎯 Calibrer la courbe » dans 🚗 Véhicule." : "");
     if (vAvg > 0) lastRealPoint = { conso: last.conso, speed: vAvg };
   }
-  const btnReal = el("fillRealConso");
-  if (btnReal) btnReal.style.display = lastRealPoint ? "block" : "none";
+  const btnReal = el("calibReal");
+  if (btnReal) btnReal.style.display = consoPts.length ? "block" : "none";
   const ref = consoPts.filter(p => p.km >= 200).slice(-1)[0];
   if (ref && !userConsoTouched) {
     const v = ref.conso.toFixed(2);
@@ -2437,7 +2478,7 @@ function saveEntry(mode, desc, total, conso, extra) {
     wind: extra.wind || null, slope: extra.slope || null,
     fixed: extra.fixed || 0, dist: extra.dist || 0, dur: extra.dur || 0, compte: true, adjusted: null,
     full: extra.full || "", profile: extra.profile || null, deniv: extra.deniv || null,
-    oneWayKm: extra.oneWayKm || 0, name: extra.name || null, tripDate: extra.tripDate || null });
+    oneWayKm: extra.oneWayKm || 0, vhist: extra.vhist || null, name: extra.name || null, tripDate: extra.tripDate || null });
   saveHistory();
   reconcile();
   renderHistory();
@@ -3027,6 +3068,7 @@ async function gpxCompute(txt, name, quiet) {
     return altS[altS.length - 1].alt;
   };
   const prof = [];
+  const vhist = []; // v3.20 : km par tranche de 10 km/h — calibrage de la courbe sur les litres réels
   const profStep = Math.max(0.3, dist / 250);
   let lastProfD = -1e9, lastV = 0, lastC = 0;
   for (const seg of segs) {
@@ -3034,6 +3076,7 @@ async function gpxCompute(txt, name, quiet) {
     if (v === null) v = hasTime ? null : 80; // sans horodatage : vitesse supposée 80 km/h
     if (v === null || v < 3) continue;
     const vc = v; // v3.16 : trace réelle — vitesse non plafonnée ; la courbe borne au-delà de son dernier point
+    { const vb = Math.min(30, Math.floor(v / 10)); vhist[vb] = (vhist[vb] || 0) + seg.d; } // v3.20 : histogramme km/vitesse
     let grade = 0;
     if (altS.length >= 2) {
       const mid = (seg.dStart + seg.dEnd) / 2;
@@ -3096,7 +3139,7 @@ async function gpxCompute(txt, name, quiet) {
     wxTxt = "Trace sans horodatage : vitesse supposée 80 km/h, météo ignorée";
   }
   const res = { dist, litres, dur, up, down, hasEle, wxTxt,
-    slope: Lslope, wind: Lwind, profile: prof, deniv: hasEle ? [up, down] : null,
+    slope: Lslope, wind: Lwind, profile: prof, vhist: vhist, deniv: hasEle ? [up, down] : null,
     avg: litres / dist * 100,
     fuel: price > 0 ? litres * price : 0,
     fixed, price, toll: tollGpx,
@@ -3159,7 +3202,7 @@ function gpxSave(res, name, fromDir) {
       wind: res.wind, slope: res.slope, deniv: res.deniv || null,
       dur: res.dur || null,
       profile: res.profile && res.profile.length ? res.profile : null, oneWayKm: res.dist,
-      fixed: res.fixed, dist: res.dist, name: name.replace(/\.gpx$/i, ""),
+      fixed: res.fixed, dist: res.dist, vhist: res.vhist || null, name: name.replace(/\.gpx$/i, ""),
       tripDate: res.t0 ? new Date(res.t0).toISOString() : null });
   if (fromDir) { gpxSeen.add(fromDir); gpxSaveSeen(); }
 }
@@ -3173,8 +3216,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.19 bêta design";
+const APP_VERSION = "v3.20 bêta design";
 const CHANGELOG = [
+  ["v3.20 bêta design · 01/11/2026",
+    "🎯 Calibrage de courbe refait : le bouton cherche un facteur d'échelle unique (moindres carrés, formule fermée) qui fait matcher l'intégrale de la courbe sur les vitesses réelles avec les litres remis aux pleins, sur toutes les périodes réconciliables pondérées par km compteur · 📊 Les imports GPX stockent maintenant un histogramme km/vitesse (tranches de 10 km/h) ; les trajets sans profil utilisent la vitesse moyenne, et les trajets sans distance ni durée comptent comme litres fixes insensibles au facteur."],
   ["v3.19 bêta design · 01/11/2026",
     "📊 Historique : graphique en bâtons du coût par mois et de la conso réelle (L/100) par période entre pleins, à côté des deux tableaux · 🎯 Calibration de courbe : la conso réelle entre pleins est une moyenne à vitesses mixtes — l'app calcule la vitesse moyenne des trajets de la période et un bouton « Reprendre le point réel » (🚗 Véhicule) remplit conso + vitesse d'un coup."],
   ["v3.18.1 bêta design · 01/11/2026",
