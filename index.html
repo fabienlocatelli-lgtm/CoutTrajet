@@ -596,7 +596,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.18 bêta design · 31/10/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.18.1 bêta design · 01/11/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -2009,18 +2009,22 @@ function reconcile() {
   for (let i = 0; i < pleins.length - 1; i++) {
     const A = pleins[i], B = pleins[i + 1];
     if (A.notFull || B.notFull) continue;
-    const trips = sorted.filter(h => h.type !== "Plein" && h.compte &&
-      (h.litres || 0) > 0 &&
-      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    /* v3.18.1 : journée du trajet (tripDate), pas la date+heure d'enregistrement */
+    const dayOf = (x) => { const d = new Date(x.tripDate || x.date); d.setHours(0, 0, 0, 0); return d.getTime(); };
+    const dA = dayOf(A), dB = dayOf(B);
+    const tripsAll = sorted.filter(h => h.type !== "Plein" && h.compte !== false &&
+      dayOf(h) > dA && dayOf(h) <= dB);
+    const trips = tripsAll.filter(h => (h.litres || 0) > 0); // litres>0 pour l'estimation ; km de tous comptés
     if (!trips.length) continue;
     /* v3.18 : écart km compteur ↔ km déclarés → trajet de rattrapage (positif ou négatif) */
     let ratTxt = "";
-    const kmTrips = trips.reduce((s, tr) => s + (tr.dist || 0), 0);
-    if ((A.odo || 0) > 0 && (B.odo || 0) > 0 && kmTrips > 0 && trips.every(tr => (tr.dist || 0) > 0)) {
+    const kmTrips = tripsAll.reduce((s, tr) => s + (tr.dist || 0), 0); // v3.18.1 : tous les trajets comptés, comme la colonne Écart
+    if ((A.odo || 0) > 0 && (B.odo || 0) > 0 && kmTrips > 0 && tripsAll.every(tr => (tr.dist || 0) > 0)) {
       const kmOdo = B.odo - A.odo;
       const diff = kmOdo - kmTrips;
       if (kmOdo > 0 && Math.abs(diff) >= 1) {
-        const avgL = trips.reduce((s, tr) => s + tr.litres, 0) / kmTrips; // L/km moyen de la période
+        const avgL = trips.reduce((s, tr) => s + tr.litres, 0) /
+        Math.max(trips.reduce((s, tr) => s + (tr.dist || 0), 0), 0.001); // L/km moyen (trajets avec litres)
         const rtL = avgL * diff;
         const fpkR = fixedPerKm();
         const rtFixed = fpkR ? fpkR.perKm * diff : 0;
@@ -2194,15 +2198,18 @@ function renderMonthlyTable() {
 function renderPeriodTable() {
   const box = el("periodTable"); if (!box) return;
   const sorted = (history || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
-  const pleins = sorted.filter(h => h.type === "Plein" && !h.notFull && h.odo > 0);
+  const pleins = sorted.filter(h => h.type === "Plein"); // v3.18.1 : mêmes paires que reconcile (adjacentes, complets uniquement)
   if (pleins.length < 2) { box.innerHTML = '<div class="empty">Il faut 2 pleins complets avec le km compteur.</div>'; return; }
   let s = '<table style="font-size:.72rem;"><tr><th>Période</th><th>km compteur</th><th>L remis</th><th>L/100</th><th>km déclarés</th><th>Écart</th></tr>';
   let rows = 0;
   for (let i = 0; i < pleins.length - 1; i++) {
     const A = pleins[i], B = pleins[i + 1];
+    if (A.notFull || B.notFull || !(A.odo > 0) || !(B.odo > 0)) continue; // période réconciliable uniquement
     const km = B.odo - A.odo; if (km <= 0) continue;
-    const trips = sorted.filter(h => h.type !== "Plein" && h.compte !== false &&
-      new Date(h.date) > new Date(A.date) && new Date(h.date) <= new Date(B.date));
+    const dayOf = (x) => { const d = new Date(x.tripDate || x.date); d.setHours(0, 0, 0, 0); return d.getTime(); }; // v3.18.1 : journée du trajet
+    const dA = dayOf(A), dB = dayOf(B);
+    const trips = sorted.filter(h => h.type !== "Plein" && !h.rattrap && h.compte !== false &&
+      dayOf(h) > dA && dayOf(h) <= dB);
     const kmTrips = trips.reduce((sm, tr) => sm + (tr.dist || 0), 0);
     const ec = km - kmTrips; rows++;
     s += '<tr><td>' + new Date(A.date).toLocaleDateString("fr-FR") + ' → ' + new Date(B.date).toLocaleDateString("fr-FR") +
@@ -3089,8 +3096,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.18 bêta design";
+const APP_VERSION = "v3.18.1 bêta design";
 const CHANGELOG = [
+  ["v3.18.1 bêta design · 01/11/2026",
+    "🐛 Rattrapage : l'écart se base sur tous les trajets comptés de la période (il correspond maintenant exactement à la colonne Écart du tableau) · 🐛 Un trajet est classé dans une période selon la journée du trajet (date du trajet), plus selon la date+heure d'enregistrement : un trajet enregistré le jour du plein est bien compté · 🐛 Tableau par période : mêmes paires de pleins que la réconciliation (un plein « non complet » coupe la période) ; les rattrapages n'entrent plus dans les km déclarés."],
   ["v3.18 bêta design · 31/10/2026",
     "📅 Historique : tableau récapitulatif par mois (trajets, km, litres, coût, CO₂e) · ⛽ Historique : tableau par période entre pleins (km compteur, litres remis, L/100 réels, km déclarés, écart) · ⚖️ badge « ajusté ×k » déplacé du récap vers le détail au clic · 🧮 Rattrapage : si les km du compteur entre deux pleins diffèrent des km déclarés, un trajet de rattrapage (positif ou négatif, à la conso moyenne de la période) est créé — la réconciliation se fait sur la base des km réels du compteur."],
   ["v3.17.1 bêta design · 31/10/2026",
