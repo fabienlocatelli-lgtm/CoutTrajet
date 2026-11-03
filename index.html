@@ -601,7 +601,7 @@
     <button class="btn gray" id="demoBtn" style="margin-top:8px;">🧪 Mode démonstration (données d'exemple)</button>
     <h2>📋 À propos</h2>
     <div class="meta" style="text-align:center;line-height:1.7;">
-      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.21 bêta design · 03/11/2026</span><br>
+      <span id="verInfo" style="cursor:pointer;text-decoration:underline dotted;">v3.22 bêta design · 03/11/2026</span><br>
       Licence open source Apache 2.0 · <a href="https://github.com/fabienlocatelli-lgtm/CoutTrajet" target="_blank" rel="noopener" style="color:var(--fg-dim);">Contribuez</a><br>Développé avec Mistral Vibe · modèle GLM 5.3
     </div>
   </div>
@@ -3075,7 +3075,14 @@ async function gpxCompute(txt, name, quiet) {
   for (const seg of segs) {
     let v = seg.v;
     if (v === null) v = hasTime ? null : 80; // sans horodatage : vitesse supposée 80 km/h
-    if (v === null || v < 3) continue;
+    if (v === null || v < 3) {
+      /* v3.22 : l'arrêt apparaît sur le graphique (0 km/h, 0 L/100) — il coûte toujours 0 L dans le calcul */
+      if (v !== null && seg.dEnd - lastProfD >= profStep * 0.5) {
+        prof.push({ d: +seg.dEnd.toFixed(3), v: 0, conso: 0, alt: hasEle ? altAtD(seg.dEnd) : null });
+        lastProfD = seg.dEnd;
+      }
+      continue;
+    }
     const vc = v; // v3.16 : trace réelle — vitesse non plafonnée ; la courbe borne au-delà de son dernier point
     { const vb = Math.min(30, Math.floor(v / 10)); vhist[vb] = (vhist[vb] || 0) + seg.d; } // v3.20 : histogramme km/vitesse
     let grade = 0;
@@ -3217,8 +3224,10 @@ el("gpxSave").addEventListener("click", () => {
 });
 
 /* ---------- Version & changelog ---------- */
-const APP_VERSION = "v3.21 bêta design";
+const APP_VERSION = "v3.22 bêta design";
 const CHANGELOG = [
+  ["v3.22 bêta design · 03/11/2026",
+    "🛑 Graphique GPX : les arrêts (feux rouges, bouchons — segments sous 3 km/h) apparaissent maintenant comme des descentes à 0 km/h et 0 L/100 sur les courbes vitesse et conso. Ils coûtent toujours 0 litre dans le calcul (start & stop supposé) ; seuls les trajets réimportés affichent la correction."],
   ["v3.21 bêta design · 03/11/2026",
     "🌱 Aide : nouvelle fiche « Empreinte environnementale de cette application » — énergie, CO₂e et eau de la génération du code et de l'hébergement, en formules complètes et équivalents du quotidien, chaque chiffre sourcé (Luccioni et al. 2024, ADEME, WUE) et mis à jour à chaque version."],
   ["v3.20 bêta design · 01/11/2026",
